@@ -25,3 +25,23 @@ docs/api/cflib
 
 #vscode config folder
 .vscode/
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# macOS Finder files
+Icon?
+._*
+
+# macOS resource fork files
+.Spotlight-V100
+.Trashes
+
+.DS_store
+
+#ignore virtual envs
+crazyflieEnv/
+micro502/
+.crazyflievenv/
