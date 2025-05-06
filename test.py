@@ -53,7 +53,7 @@ logging.basicConfig(level=logging.ERROR)
 class LoggingExample:
     """
     Simple logging example class that logs the Stabilizer from a supplied
-    link uri and disconnects after 10s.
+    link uri and disconnects after 5s.
     """
 
     def __init__(self, link_uri):
@@ -66,6 +66,16 @@ class LoggingExample:
         self._cf.disconnected.add_callback(self._disconnected)
         self._cf.connection_failed.add_callback(self._connection_failed)
         self._cf.connection_lost.add_callback(self._connection_lost)
+
+        self.sensor_data = {
+            'stateEstimate.x': 0.0,
+            'stateEstimate.y': 0.0,
+            'stateEstimate.z': 0.0,
+            'stabilizer.roll': 0.0,
+            'stabilizer.pitch': 0.0,
+            'stabilizer.yaw': 0.0,
+            'pm.vbat': 0.0
+        }
 
         print('Connecting to %s' % link_uri)
 
@@ -81,14 +91,15 @@ class LoggingExample:
         print('Connected to %s' % link_uri)
 
         # The definition of the logconfig can be made before connecting
-        self._lg_stab = LogConfig(name='Stabilizer', period_in_ms=50)
+        self._lg_stab = LogConfig(name='Stabilizer', period_in_ms=100)
         self._lg_stab.add_variable('stateEstimate.x', 'float')
         self._lg_stab.add_variable('stateEstimate.y', 'float')
         self._lg_stab.add_variable('stateEstimate.z', 'float')
+        self._lg_stab.add_variable('stabilizer.roll', 'float')
+        self._lg_stab.add_variable('stabilizer.pitch', 'float')
         self._lg_stab.add_variable('stabilizer.yaw', 'float')
-
         # The fetch-as argument can be set to FP16 to save space in the log packet
-        # self._lg_stab.add_variable('pm.vbat', 'FP16')
+        self._lg_stab.add_variable('pm.vbat', 'FP16')
 
         # Adding the configuration cannot be done until a Crazyflie is
         # connected, since we need to check that the variables we
@@ -107,8 +118,8 @@ class LoggingExample:
         except AttributeError:
             print('Could not add Stabilizer log config, bad configuration.')
 
-        # Start a timer to disconnect in 50s     TODO: CHANGE THIS TO YOUR NEEDS
-        t = Timer(50, self._cf.close_link)
+        # Start a timer to disconnect in 10s
+        t = Timer(5, self._cf.close_link)
         t.start()
 
     def _stab_log_error(self, logconf, msg):
@@ -117,12 +128,8 @@ class LoggingExample:
 
     def _stab_log_data(self, timestamp, data, logconf):
         """Callback from a the log API when data arrives"""
-        # Print the data to the console
-        print(f'[{timestamp}][{logconf.name}]: ', end='')
         for name, value in data.items():
-            print(f'{name}: {value:3.3f} ', end='')
-        print()
-
+            self.sensor_data[name] = value
 
     def _connection_failed(self, link_uri, msg):
         """Callback when connection initial connection fails (i.e no Crazyflie
@@ -139,6 +146,7 @@ class LoggingExample:
         """Callback when the Crazyflie is disconnected (called in all cases)"""
         print('Disconnected from %s' % link_uri)
         self.is_connected = False
+
 
 
 # Define your custom callback function
@@ -176,31 +184,43 @@ if __name__ == '__main__':
     # TODO : CHANGE THIS TO YOUR NEEDS
     print("Starting control")
     while le.is_connected:
-        time.sleep(0.01)
-        
-        # Take-off
-        for y in range(10):
-            cf.commander.send_hover_setpoint(0, 0, 0, y / 25)
-            time.sleep(0.1)
-        for _ in range(20):
-            cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-            time.sleep(0.1)
+        while True:
+            time.sleep(0.01)
+            
+            x_pos = le.sensor_data['stateEstimate.x']
+            y_pos = le.sensor_data['stateEstimate.y']
+            z_pos = le.sensor_data['stateEstimate.z']
+            roll = le.sensor_data['stabilizer.roll']
+            pitch = le.sensor_data['stabilizer.pitch']
+            yaw = le.sensor_data['stabilizer.yaw']
+            vbat = le.sensor_data['pm.vbat']
 
-        # Move 
-        for _ in range(50):
-            cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-            time.sleep(0.1)
-        for _ in range(50):
-            cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-            time.sleep(0.1)
+            print(f"X: {x_pos:.2f}, Y: {y_pos:.2f}, Z: {z_pos:.2f}, "f"Roll: {roll:.2f}, Pitch: {pitch:.2f}, Yaw: {yaw:.2f}, "f"VBat: {vbat:.2f}")
 
-        # Land
-        for _ in range(20):
-            cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-            time.sleep(0.1)
-        for y in range(10):
-            cf.commander.send_hover_setpoint(0, 0, 0, (10 - y) / 25)
-            time.sleep(0.1)
 
-        cf.commander.send_stop_setpoint()
-        break
+            # # Take-off
+            # for y in range(10):
+            #     cf.commander.send_hover_setpoint(0, 0, 0, y / 25)
+            #     time.sleep(0.1)
+            # for _ in range(20):
+            #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
+            #     time.sleep(0.1)
+
+            # # Move 
+            # for _ in range(50):
+            #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
+            #     time.sleep(0.1)
+            # for _ in range(50):
+            #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
+            #     time.sleep(0.1)
+
+            # # Land
+            # for _ in range(20):
+            #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
+            #     time.sleep(0.1)
+            # for y in range(10):
+            #     cf.commander.send_hover_setpoint(0, 0, 0, (10 - y) / 25)
+            #     time.sleep(0.1)
+
+            # cf.commander.send_stop_setpoint()
+            # break
