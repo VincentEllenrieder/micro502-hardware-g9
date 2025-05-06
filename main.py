@@ -15,32 +15,114 @@
 #                       Vincent Ellerieder (329051) #
 # ================================================= #
 
+import logging
+import time
+from threading import Timer
+import threading
+from pynput import keyboard 
+import cflib.crtp
+from cflib.crazyflie import Crazyflie
+from cflib.crazyflie.log import LogConfig
+from cflib.utils import uri_helper
+
+class LoggingExample:
+    """
+    Simple logging example class that logs the Stabilizer from a supplied
+    link uri and disconnects after 5s.
+    """
+
+    def __init__(self, link_uri):
+        """ Initialize and run the example with the specified link_uri """
+
+        self._cf = Crazyflie(rw_cache='./cache')
+
+        # Connect some callbacks from the Crazyflie API
+        self._cf.connected.add_callback(self._connected)
+        self._cf.disconnected.add_callback(self._disconnected)
+        self._cf.connection_failed.add_callback(self._connection_failed)
+        self._cf.connection_lost.add_callback(self._connection_lost)
+
+        self.sensor_data = {
+            'stateEstimate.x': 0.0,
+            'stateEstimate.y': 0.0,
+            'stateEstimate.z': 0.0,
+            'stabilizer.roll': 0.0,
+            'stabilizer.pitch': 0.0,
+            'stabilizer.yaw': 0.0,
+            'pm.vbat': 0.0
+        }
+
+        print('Connecting to %s' % link_uri)
+
+        # Try to connect to the Crazyflie
+        self._cf.open_link(link_uri)
+
+        # Variable used to keep main loop occupied until disconnect
+        self.is_connected = True
+
+    def _connected(self, link_uri):
+        """ This callback is called form the Crazyflie API when a Crazyflie
+        has been connected and the TOCs have been downloaded."""
+        print('Connected to %s' % link_uri)
+
+        # The definition of the logconfig can be made before connecting
+        self._lg_stab = LogConfig(name='Stabilizer', period_in_ms=100)
+        self._lg_stab.add_variable('stateEstimate.x', 'float')
+        self._lg_stab.add_variable('stateEstimate.y', 'float')
+        self._lg_stab.add_variable('stateEstimate.z', 'float')
+        self._lg_stab.add_variable('stabilizer.roll', 'float')
+        self._lg_stab.add_variable('stabilizer.pitch', 'float')
+        self._lg_stab.add_variable('stabilizer.yaw', 'float')
+        # The fetch-as argument can be set to FP16 to save space in the log packet
+        self._lg_stab.add_variable('pm.vbat', 'FP16')
+
+        # Adding the configuration cannot be done until a Crazyflie is
+        # connected, since we need to check that the variables we
+        # would like to log are in the TOC.
+        try:
+            self._cf.log.add_config(self._lg_stab)
+            # This callback will receive the data
+            self._lg_stab.data_received_cb.add_callback(self._stab_log_data)
+            # This callback will be called on errors
+            self._lg_stab.error_cb.add_callback(self._stab_log_error)
+            # Start the logging
+            self._lg_stab.start()
+        except KeyError as e:
+            print('Could not start log configuration,'
+                  '{} not found in TOC'.format(str(e)))
+        except AttributeError:
+            print('Could not add Stabilizer log config, bad configuration.')
+
+        # Start a timer to disconnect in 10s
+        t = Timer(5, self._cf.close_link)
+        t.start()
+
+    def _stab_log_error(self, logconf, msg):
+        """Callback from the log API when an error occurs"""
+        print('Error when logging %s: %s' % (logconf.name, msg))
+
+    def _stab_log_data(self, timestamp, data, logconf):
+        """Callback from a the log API when data arrives"""
+        for name, value in data.items():
+            self.sensor_data[name] = value
+
+    def _connection_failed(self, link_uri, msg):
+        """Callback when connection initial connection fails (i.e no Crazyflie
+        at the specified address)"""
+        print('Connection to %s failed: %s' % (link_uri, msg))
+        self.is_connected = False
+
+    def _connection_lost(self, link_uri, msg):
+        """Callback when disconnected after a connection has been made (i.e
+        Crazyflie moves out of range)"""
+        print('Connection to %s lost: %s' % (link_uri, msg))
+
+    def _disconnected(self, link_uri):
+        """Callback when the Crazyflie is disconnected (called in all cases)"""
+        print('Disconnected from %s' % link_uri)
+        self.is_connected = False
 
 
-
-#################################### #   GLOBAL VARIABLES   # ######################################
-
-
-# -------- General global variables --------
-VERBOSE = True  # Set "True" for printing debug information.
-
-phase = "takeoff"           # Phases: "takeoff", "wait_go", "speed_run" or "end"
-phase_transition = True     # True if the phase is changing
-
-
-
-
-############################ #   PHASE 1 FUNCTIONS - "wait_go"   # #############################
-
-
-
-
-############################ #   PHASE 2 FUNCTIONS - "speed_run"   # ############################
-
-
-
-
-#################################### #   UTILITY FUNCTIONS   # #####################################
 def TransitionToPhase(phase_name):
     """
     Transition to a new phase of the project while setting the phase_transition flag.
@@ -63,13 +145,6 @@ def TransitionToPhase(phase_name):
     phase_transition = True
 
 
-
-
-
-
-
-
-###################################### #   MAIN COMMAND   # ########################################
 def get_command(arg1, arg2, arg3, arg4, dt):
     """
     This function holds the logic for the different phases of the simulation.
@@ -181,31 +256,140 @@ def get_command(arg1, arg2, arg3, arg4, dt):
             print("\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
         control_command = [x,y,z, roll,pitch,yaw]
         return control_command
+
+
+def emergency_stop_callback(cf):
+    def on_press(key):
+        try:
+            if key.char == 'q':  # Check if the "space" key is pressed
+                print("Emergency stop triggered!")
+                cf.commander.send_stop_setpoint()  # Stop the Crazyflie
+                cf.close_link()  # Close the link to the Crazyflie
+                return False     # Stop the listener
+        except AttributeError:
+            pass
+
+    # Start listening for key presses
+    with keyboard.Listener(on_press=on_press) as listener:
+        listener.join()
     
+
+def is_on_position(x, y, z, x_goal, y_goal, z_goal):
+    global GOAL_THRESHOLD
+    """
+    Check if the drone is on position within a given GOAL_THRESHOLD.
     
+    Parameters:
+    - x, y, z: Current position of the drone
+    - x_goal, y_goal, z_goal: Goal position
+    - GOAL_THRESHOLD: Tolerance for the position check
     
+    Returns:
+    - True if the drone is on position, False otherwise
+    """
+    return abs(x - x_goal) < GOAL_THRESHOLD and abs(y - y_goal) < GOAL_THRESHOLD and abs(z - z_goal) < GOAL_THRESHOLD
+
+
+def take_off(cf, height=1.0):
+    """
+    Take off the drone to a given height.
     
-    
-    
+    Parameters:
+    - cf: Crazyflie object
+    - height: Height to take off to (default is 1.0m)
+    """
+    print("Taking off...")
+    cf.commander.send_position_setpoint(0, 0, height, 0)
+    time.sleep(2)  # Wait for the drone to take off
+    print("Take off complete.")
+
+# -------- General global variables --------
+VERBOSE = True  # Set "True" for printing debug information.
+
+phase = "takeoff"           # Phases: "takeoff", "wait_go", "speed_run" or "end"
+phase_transition = True     # True if the phase is changing
+
+
+uri = uri_helper.uri_from_env(default='radio://0/90/2M/E7E7E7E709')
+
+# Only output errors from the logging framework
+logging.basicConfig(level=logging.ERROR)
+
+
+GOAL_THRESHOLD = 0.2 # in m
+TAKE_OFF_HEIGHT = 0.5 # in m
+
+STATE = {
+    "TAKE_OFF": 0,
+    "RACING": 1,
+    "LANDING": 2,
+}
+DT = 0.1 # in seconds
+GOALS = [[0.5, 0, 0.5], [0.5, 0.5, 1.0], [1.5, 1.5, 0.5]] # Example goals for the drone to reach
+
+
 if __name__ == "__main__":
-    """
-    Main function to run the project
-    """
-    print("\n")
-    print("===============================================")
-    print("          CRAZYFLIE HARDWARE ASSIGNMENT        ")
-    print("            group 9 - Aerial Robotics          ")
-    print("===============================================")
+    # Initialize the low-level drivers
+    cflib.crtp.init_drivers()
+
+    le = LoggingExample(uri)
+    cf = le._cf
+
+    cf.param.set_value('kalman.resetEstimation', '1')
+    time.sleep(0.1)
+    cf.param.set_value('kalman.resetEstimation', '0')
+    time.sleep(2)
+
+    # Emergency stop thread
+    emergency_stop_thread = threading.Thread(target=emergency_stop_callback, args=(cf,))
+    emergency_stop_thread.start()
+
+    print("Starting control")
+
+    state = STATE["TAKE_OFF"]
+    take_off_reached = False
+    waypoint_index = 0
+
     
-    print("Launching...")
-    
-    arg1 = 0.0
-    arg2 = 0.0
-    arg3 = 0.0
-    arg4 = 0.0
-    dt = 0.1
-    
-    while True:
-        control_command = get_command(arg1, arg2, arg3, arg4, dt)
+    while le.is_connected:
+        x_pos = le.sensor_data['stateEstimate.x']
+        y_pos = le.sensor_data['stateEstimate.y']
+        z_pos = le.sensor_data['stateEstimate.z']
+        roll = le.sensor_data['stabilizer.roll']
+        pitch = le.sensor_data['stabilizer.pitch']
+        yaw = le.sensor_data['stabilizer.yaw']
+        vbat = le.sensor_data['pm.vbat']
+
+        print(f"X: {x_pos:.2f}, Y: {y_pos:.2f}, Z: {z_pos:.2f}, "f"Roll: {roll:.2f}, Pitch: {pitch:.2f}, Yaw: {yaw:.2f}, "f"VBat: {vbat:.2f}")
+
+        if state == STATE["TAKE_OFF"]:
+            if is_on_position(x_pos, y_pos, z_pos, 0, 0, TAKE_OFF_HEIGHT):
+                state = STATE["RACING"]
+            else:
+                take_off(cf, TAKE_OFF_HEIGHT)
+
+        elif state == STATE["RACING"]:
+            x_goal, y_goal, z_goal = GOALS[waypoint_index]
+            cf.commander.send_position_setpoint(x_goal, y_goal, z_goal, 0)
+
+            if is_on_position(x_pos, y_pos, z_pos, x_goal, y_goal, z_goal):
+                waypoint_index += 1
+                if waypoint_index >= len(GOALS):
+                    state = STATE["LANDING"]
+                    print("All waypoints reached. Transitioning to landing.")
+                else:
+                    print(f"Waypoint {waypoint_index} reached.")
+
+        elif state == STATE["LANDING"]:
+            if is_on_position(x_pos, y_pos, z_pos, 0, 0, 0):
+                print("Landing complete.")
+                cf.commander.send_stop_setpoint()
+                break
+            else:
+                # Send a landing command
+                cf.commander.send_position_setpoint(x_pos, y_pos, 0, 0)
+
+        time.sleep(DT)
+
     
     
