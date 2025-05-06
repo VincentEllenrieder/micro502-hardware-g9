@@ -30,21 +30,12 @@ phase_transition = True     # True if the phase is changing
 
 
 
+############################ #   PHASE 1 FUNCTIONS - "wait_go"   # #############################
 
 
 
 
-
-
-
-############################ #   PHASE 1 FUNCTIONS - Vision Module   # #############################
-
-
-
-
-############################ #   PHASE 2 FUNCTIONS - Motion Planner   # ############################
-
-
+############################ #   PHASE 2 FUNCTIONS - "speed_run"   # ############################
 
 
 
