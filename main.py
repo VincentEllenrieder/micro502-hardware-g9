@@ -6,7 +6,7 @@
 #                              2025 - Fall semester #
 #                                                   #
 # ------------------------------------------------- #
-# Assignemet done by group 9 :                      #
+# Assignment done by group 9 :                      #
 #                                                   #
 #                          Charles Proffit (324624) #
 #                           Clément Chalut (326251) #
@@ -42,15 +42,23 @@ class LoggingExample:
         self._cf.connection_failed.add_callback(self._connection_failed)
         self._cf.connection_lost.add_callback(self._connection_lost)
 
-        self.sensor_data = {
-            'stateEstimate.x': 0.0,
-            'stateEstimate.y': 0.0,
-            'stateEstimate.z': 0.0,
-            'stabilizer.roll': 0.0,
-            'stabilizer.pitch': 0.0,
-            'stabilizer.yaw': 0.0,
-            'pm.vbat': 0.0
-        }
+        self.sensor_data = {}
+
+        # self.sensor_data['t'] = 0
+        self.sensor_data["x"] = 0
+        self.sensor_data["y"] = 0
+        self.sensor_data["z"] = 0
+        self.sensor_data["roll"] = 0
+        self.sensor_data["pitch"] = 0
+        self.sensor_data["yaw"] = 0
+        self.sensor_data["vbat"] = 0
+
+        # Accumulators for smoothing / hand detection 
+        self.accumulator_z = [0]*10
+
+        # Boolean states
+        self.emergency_stop = False
+        self.block_callback = False 
 
         print('Connecting to %s' % link_uri)
 
@@ -93,8 +101,8 @@ class LoggingExample:
         except AttributeError:
             print('Could not add Stabilizer log config, bad configuration.')
 
-        # Start a timer to disconnect in 10s
-        t = Timer(5, self._cf.close_link)
+        # Start a timer to disconnect in 60s
+        t = Timer(120, self._cf.close_link) #WTF
         t.start()
 
     def _stab_log_error(self, logconf, msg):
@@ -103,8 +111,30 @@ class LoggingExample:
 
     def _stab_log_data(self, timestamp, data, logconf):
         """Callback from a the log API when data arrives"""
-        for name, value in data.items():
-            self.sensor_data[name] = value
+        if not(self.block_callback):
+            self.block_callback = True  # Prevents the callback from being called again while processing
+
+            # Update the other states
+            for name, value in data.items():
+                if name == 'stateEstimate.x':
+                    self.sensor_data['x'] = value
+                if name == 'stateEstimate.y':
+                    self.sensor_data['y'] = value
+                if name == 'stateEstimate.z':
+                    self.sensor_data['z'] = value
+                    # Update the accumulator
+                    self.accumulator_z.append(value)
+                    self.accumulator_z.pop(0)
+                if name == 'stabilizer.roll':
+                    self.sensor_data['roll'] = value
+                if name == 'stabilizer.pitch':
+                    self.sensor_data['pitch'] = value
+                if name == 'stabilizer.yaw':
+                    self.sensor_data['yaw'] = value
+                if name == 'pm.vbat':
+                    self.sensor_data['vbat'] = value
+
+            self.block_callback = False
 
     def _connection_failed(self, link_uri, msg):
         """Callback when connection initial connection fails (i.e no Crazyflie
@@ -143,7 +173,6 @@ class LoggingExample:
 #         print(f"  - Transitioning from '{phase}' to '{phase_name}'")
 #     phase = phase_name
 #     phase_transition = True
-
 
 # def get_command(arg1, arg2, arg3, arg4, dt):
 #     """
@@ -258,13 +287,13 @@ class LoggingExample:
 #         return control_command
 
 
-def emergency_stop_callback(cf):
+def emergency_stop_callback(le):
+    cf = le._cf  # Access the Crazyflie instance from the LoggingExample
     def on_press(key):
         try:
             if key.char == 'q':  # Check if the "space" key is pressed
                 print("Emergency stop triggered!")
-                cf.commander.send_stop_setpoint()  # Stop the Crazyflie
-                cf.close_link()  # Close the link to the Crazyflie
+                le.emergency_stop = True
                 return False     # Stop the listener
         except AttributeError:
             pass
@@ -272,6 +301,11 @@ def emergency_stop_callback(cf):
     # Start listening for key presses
     with keyboard.Listener(on_press=on_press) as listener:
         listener.join()
+
+    # Send the stop setpoint to the Crazyflie if the emergency stop is triggered
+    if le.emergency_stop:
+        cf.commander.send_stop_setpoint()
+        cf.close_link()
     
 
 def is_on_position(x, y, z, x_goal, y_goal, z_goal):
@@ -327,7 +361,7 @@ if __name__ == "__main__":
     time.sleep(2)
 
     # Emergency stop thread
-    emergency_stop_thread = threading.Thread(target=emergency_stop_callback, args=(cf,))
+    emergency_stop_thread = threading.Thread(target=emergency_stop_callback, args=(le,))
     emergency_stop_thread.start()
 
     print("Starting control")
@@ -340,13 +374,13 @@ if __name__ == "__main__":
     while le.is_connected:
         while True :
         
-            x_pos = le.sensor_data['stateEstimate.x']
-            y_pos = le.sensor_data['stateEstimate.y']
-            z_pos = le.sensor_data['stateEstimate.z']
-            roll = le.sensor_data['stabilizer.roll']
-            pitch = le.sensor_data['stabilizer.pitch']
-            yaw = le.sensor_data['stabilizer.yaw']
-            vbat = le.sensor_data['pm.vbat']
+            x_pos = le.sensor_data['x']
+            y_pos = le.sensor_data['y']
+            z_pos = le.sensor_data['z']
+            roll = le.sensor_data['roll']
+            pitch = le.sensor_data['pitch']
+            yaw = le.sensor_data['yaw']
+            vbat = le.sensor_data['vbat']
 
             print(f"X: {x_pos:.2f}, Y: {y_pos:.2f}, Z: {z_pos:.2f}, "f"Roll: {roll:.2f}, Pitch: {pitch:.2f}, Yaw: {yaw:.2f}, "f"VBat: {vbat:.2f}")
 
