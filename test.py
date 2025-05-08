@@ -1,54 +1,29 @@
-# -*- coding: utf-8 -*-
-#
-#     ||          ____  _ __
-#  +------+      / __ )(_) /_______________ _____  ___
-#  | 0xBC |     / __  / / __/ ___/ ___/ __ `/_  / / _ \
-#  +------+    / /_/ / / /_/ /__/ /  / /_/ / / /_/  __/
-#   ||  ||    /_____/_/\__/\___/_/   \__,_/ /___/\___/
-#
-#  Copyright (C) 2014 Bitcraze AB
-#
-#  Crazyflie Nano Quadcopter Client
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <https://www.gnu.org/licenses/>.
-"""
-Simple example that connects to the first Crazyflie found, logs the Stabilizer
-and prints it to the console. 
+# ================================================= #
+# Crazyflie Hardware Assignment                     #
+# Aerial robotics (MICRO-502)                       #
+#                                                   #
+#                      Property of the EPFL LIS LAB #
+#                              2025 - Fall semester #
+#                                                   #
+# ------------------------------------------------- #
+# Assignment done by group 9 :                      #
+#                                                   #
+#                          Charles Proffit (324624) #
+#                           Clément Chalut (326251) #
+#                             Cyril Goffin (373937) #
+#                          Jeremy Serillon (326033) #
+#                       Vincent Ellerieder (329051) #
+# ================================================= #
 
-The Crazyflie is controlled using the commander interface 
-
-Press q to Kill the drone in case of emergency
-
-After 50s the application disconnects and exits.
-"""
 import logging
 import time
 from threading import Timer
 import threading
-
-from pynput import keyboard # Import the keyboard module for key press detection
-
-import cflib.crtp  # noqa
+from pynput import keyboard 
+import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.log import LogConfig
 from cflib.utils import uri_helper
-
-# TODO: CHANGE THIS URI TO YOUR CRAZYFLIE & YOUR RADIO CHANNEL
-uri = uri_helper.uri_from_env(default='radio://0/90/2M/E7E7E7E709')
-
-# Only output errors from the logging framework
-logging.basicConfig(level=logging.ERROR)
-
 
 class LoggingExample:
     """
@@ -67,15 +42,23 @@ class LoggingExample:
         self._cf.connection_failed.add_callback(self._connection_failed)
         self._cf.connection_lost.add_callback(self._connection_lost)
 
-        self.sensor_data = {
-            'stateEstimate.x': 0.0,
-            'stateEstimate.y': 0.0,
-            'stateEstimate.z': 0.0,
-            'stabilizer.roll': 0.0,
-            'stabilizer.pitch': 0.0,
-            'stabilizer.yaw': 0.0,
-            'pm.vbat': 0.0
-        }
+        self.sensor_data = {}
+
+        # self.sensor_data['t'] = 0
+        self.sensor_data["x"] = 0
+        self.sensor_data["y"] = 0
+        self.sensor_data["z"] = 0
+        self.sensor_data["roll"] = 0
+        self.sensor_data["pitch"] = 0
+        self.sensor_data["yaw"] = 0
+        self.sensor_data["vbat"] = 0
+
+        # Accumulators for smoothing / hand detection 
+        self.accumulator_z = [0]*10
+
+        # Boolean states
+        self.emergency_stop = False
+        self.block_callback = False 
 
         print('Connecting to %s' % link_uri)
 
@@ -118,8 +101,8 @@ class LoggingExample:
         except AttributeError:
             print('Could not add Stabilizer log config, bad configuration.')
 
-        # Start a timer to disconnect in 10s
-        t = Timer(5, self._cf.close_link)
+        # Start a timer to disconnect in 60s
+        t = Timer(120, self._cf.close_link) #WTF
         t.start()
 
     def _stab_log_error(self, logconf, msg):
@@ -128,8 +111,30 @@ class LoggingExample:
 
     def _stab_log_data(self, timestamp, data, logconf):
         """Callback from a the log API when data arrives"""
-        for name, value in data.items():
-            self.sensor_data[name] = value
+        if not(self.block_callback):
+            self.block_callback = True  # Prevents the callback from being called again while processing
+
+            # Update the other states
+            for name, value in data.items():
+                if name == 'stateEstimate.x':
+                    self.sensor_data['x'] = value
+                if name == 'stateEstimate.y':
+                    self.sensor_data['y'] = value
+                if name == 'stateEstimate.z':
+                    self.sensor_data['z'] = value
+                    # Update the accumulator
+                    self.accumulator_z.append(value)
+                    self.accumulator_z.pop(0)
+                if name == 'stabilizer.roll':
+                    self.sensor_data['roll'] = value
+                if name == 'stabilizer.pitch':
+                    self.sensor_data['pitch'] = value
+                if name == 'stabilizer.yaw':
+                    self.sensor_data['yaw'] = value
+                if name == 'pm.vbat':
+                    self.sensor_data['vbat'] = value
+
+            self.block_callback = False
 
     def _connection_failed(self, link_uri, msg):
         """Callback when connection initial connection fails (i.e no Crazyflie
@@ -148,15 +153,147 @@ class LoggingExample:
         self.is_connected = False
 
 
+# def TransitionToPhase(phase_name):
+#     """
+#     Transition to a new phase of the project while setting the phase_transition flag.
+    
+#     Parameters:
+#     - phase_name: The name of the new phase to transition to. It can be
+#                   "takeoff", "wait_go", "speed_run" or "end".
+#     """
+    
+#     global phase, phase_transition
+    
+#     # Check if valid phase name
+#     if phase_name not in ["takeoff", "wait_go", "speed_run", "end"]:
+#         print("\n.")
+#         raise ValueError("Invalid phase name. Cannot transition to phase: " + phase_name)
 
-# Define your custom callback function
-def emergency_stop_callback(cf):
+#     if VERBOSE:
+#         print(f"  - Transitioning from '{phase}' to '{phase_name}'")
+#     phase = phase_name
+#     phase_transition = True
+
+# def get_command(arg1, arg2, arg3, arg4, dt):
+#     """
+#     This function holds the logic for the different phases of the simulation.
+#     The function is called every simulation step and should return the control command for the drone.
+    
+#     Phases:
+#      - 0: "takeoff"
+#      - 1: "wait_go"
+#      - 2: "speed_run"
+#      - 3: "end"
+#     """
+    
+#     global phase, phase_transition
+    
+#     x,    y,     z   = 0.0 , 0.0 , 0.0
+#     roll, pitch, yaw = 0.0 , 0.0 , 0.0
+    
+#     control_command = [x,y,z, roll,pitch,yaw]
+    
+    
+    
+#     # ---- PHASE 0 : TAKE OFF ----
+#     if phase == "takeoff":
+#         if phase_transition:
+#             phase_transition = False
+#             if VERBOSE: 
+#                 print("\n-----------------------------------------------")
+#                 print("\n              PHASE 0 - TAKE OFF               ")
+#                 print("\n-----------------------------------------------"); print("\n")
+        
+        
+#         # Take off sequence to z height of 1m
+#         # ... complete here ...
+        
+#         # Transition to next phase if reached z height
+#         if True:    # if z >= 0.9:
+#             TransitionToPhase("wait_go")
+            
+#         return control_command
+
+    
+    
+#     # ---- PHASE 1 : GATE DETECTION - LAP 1 ----
+#     elif phase == "wait_go":
+#         if phase_transition:
+#             phase_transition = False
+#             if VERBOSE:
+#                 print("."); print("."); print("."); print(".")
+#                 print("\n-----------------------------------------------")
+#                 print("\n           PHASE 1 - WAITING FOR GO            ")
+#                 print("\n-----------------------------------------------"); print("\n")
+            
+#         # Wait for user input to transition to speed_run phase
+#         user_input = input("Type 'go' to start the speed run: ").strip().lower()
+#         if user_input == "go":
+#             TransitionToPhase("speed_run")
+            
+#         # Stay at take off position
+#         control_command = [x,y,z, roll,pitch,yaw]
+
+#         return control_command
+    
+    
+    
+#     # ---- PHASE 2 : SPEED RUN - LAP 2 & 3 ----
+#     elif phase == "speed_run":
+#         if phase_transition:
+#             phase_transition = False
+#             if VERBOSE:
+#                 print("\n-----------------------------------------------")
+#                 print("\n              PHASE 2 - SPEED RUN              ")
+#                 print("\n-----------------------------------------------"); print("\n")
+            
+            
+#         control_command =[x,y,z, roll,pitch,yaw]
+        
+#         if True:
+#             # If drone has completed the laps, transition to "end" phase
+            
+#             TransitionToPhase("end")
+        
+#         return control_command
+
+    
+    
+#     # ---- PHASE 3 : END OF SIMULATION ----
+#     elif phase == "end":
+#         if phase_transition:
+#             phase_transition = False
+#             if VERBOSE:
+#                 print("."); print("."); print("."); print("."); 
+#                 print("\n-----------------------------------------------")
+#                 print("\n               END OF SIMULATION               ")
+#                 print("\n-----------------------------------------------"); print("\n")
+            
+#         control_command = [x,y,z, roll,pitch,yaw]
+            
+#         return control_command
+    
+    
+    
+#     # ---- Out of bounds phase state ----
+#     else:
+#         if phase_transition == True:
+#             phase_transition = False
+#             print("\n.")
+#             print("\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+#             print("\nERROR: FSM OUT OF BOUNDS. Invalide phase state.")
+#             print("\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+#         control_command = [x,y,z, roll,pitch,yaw]
+#         return control_command
+
+
+def emergency_stop_callback(le):
+    cf = le._cf  # Access the Crazyflie instance from the LoggingExample
     def on_press(key):
         try:
             if key.char == 'q':  # Check if the "space" key is pressed
                 print("Emergency stop triggered!")
-                cf.commander.send_stop_setpoint()  # Stop the Crazyflie
-                cf.close_link()  # Close the link to the Crazyflie
+                le.emergency_stop = True
                 return False     # Stop the listener
         except AttributeError:
             pass
@@ -165,7 +302,53 @@ def emergency_stop_callback(cf):
     with keyboard.Listener(on_press=on_press) as listener:
         listener.join()
 
-if __name__ == '__main__':
+    # Send the stop setpoint to the Crazyflie if the emergency stop is triggered
+    if le.emergency_stop:
+        cf.commander.send_stop_setpoint()
+        cf.close_link()
+    
+
+def is_on_position(x, y, z, x_goal, y_goal, z_goal):
+    global GOAL_THRESHOLD
+    """
+    Check if the drone is on position within a given GOAL_THRESHOLD.
+    
+    Parameters:
+    - x, y, z: Current position of the drone
+    - x_goal, y_goal, z_goal: Goal position
+    - GOAL_THRESHOLD: Tolerance for the position check
+    
+    Returns:
+    - True if the drone is on position, False otherwise
+    """
+    return abs(x - x_goal) < GOAL_THRESHOLD and abs(y - y_goal) < GOAL_THRESHOLD and abs(z - z_goal) < GOAL_THRESHOLD
+
+# -------- General global variables --------
+VERBOSE = True  # Set "True" for printing debug information.
+
+phase = "takeoff"           # Phases: "takeoff", "wait_go", "speed_run" or "end"
+phase_transition = True     # True if the phase is changing
+
+
+uri = uri_helper.uri_from_env(default='radio://0/90/2M/E7E7E7E709')
+
+# Only output errors from the logging framework
+logging.basicConfig(level=logging.ERROR)
+
+
+GOAL_THRESHOLD = 0.05 # in m
+TAKE_OFF_HEIGHT = 0.4 # in m
+
+STATE = {
+    "TAKE_OFF": 0,
+    "RACING": 1,
+    "LANDING": 2,
+}
+DT = 0.1 # in seconds
+GOALS = [[1.0, 0, TAKE_OFF_HEIGHT], [0.0, 0.0, TAKE_OFF_HEIGHT]] # Example goals for the drone to reach
+
+
+if __name__ == "__main__":
     # Initialize the low-level drivers
     cflib.crtp.init_drivers()
 
@@ -177,50 +360,64 @@ if __name__ == '__main__':
     cf.param.set_value('kalman.resetEstimation', '0')
     time.sleep(2)
 
-    # Replace the thread creation with the updated function
-    emergency_stop_thread = threading.Thread(target=emergency_stop_callback, args=(cf,))
+    # Emergency stop thread
+    emergency_stop_thread = threading.Thread(target=emergency_stop_callback, args=(le,))
     emergency_stop_thread.start()
 
-    # TODO : CHANGE THIS TO YOUR NEEDS
     print("Starting control")
+
+    state = STATE["TAKE_OFF"]
+    take_off_reached = False
+    waypoint_index = 0
+    index_general = 0
+
+    
     while le.is_connected:
-        while True:
-            time.sleep(0.01)
-            
-            x_pos = le.sensor_data['stateEstimate.x']
-            y_pos = le.sensor_data['stateEstimate.y']
-            z_pos = le.sensor_data['stateEstimate.z']
-            roll = le.sensor_data['stabilizer.roll']
-            pitch = le.sensor_data['stabilizer.pitch']
-            yaw = le.sensor_data['stabilizer.yaw']
-            vbat = le.sensor_data['pm.vbat']
+        
+        x_pos = le.sensor_data['x']
+        y_pos = le.sensor_data['y']
+        z_pos = le.sensor_data['z']
+        roll = le.sensor_data['roll']
+        pitch = le.sensor_data['pitch']
+        yaw = le.sensor_data['yaw']
+        vbat = le.sensor_data['vbat']
 
-            print(f"X: {x_pos:.2f}, Y: {y_pos:.2f}, Z: {z_pos:.2f}, "f"Roll: {roll:.2f}, Pitch: {pitch:.2f}, Yaw: {yaw:.2f}, "f"VBat: {vbat:.2f}")
+        print(f"X: {x_pos:.2f}, Y: {y_pos:.2f}, Z: {z_pos:.2f}, "f"Roll: {roll:.2f}, Pitch: {pitch:.2f}, Yaw: {yaw:.2f}, "f"VBat: {vbat:.2f}")
+
+        if state == STATE["TAKE_OFF"]:
+            if is_on_position(x_pos, y_pos, z_pos, 0, 0, TAKE_OFF_HEIGHT):
+                state = STATE["RACING"]
+                print("Take-off complete. Transitioning to racing.")
+            else:
+                cf.commander.send_position_setpoint(0, 0, TAKE_OFF_HEIGHT, 0)
+                print("Takeing off...")
+                
+
+        elif state == STATE["RACING"]:
+            x_goal, y_goal, z_goal = GOALS[waypoint_index]
+            if is_on_position(x_pos, y_pos, z_pos, x_goal, y_goal, z_goal):
+                waypoint_index += 1
+                if waypoint_index >= len(GOALS):
+                    waypoint_index = 0
+                    index_general += 1
+                    if index_general >= 10:
+                        state = STATE["LANDING"]
+                        print("All waypoints reached. Transitioning to landing.")
+                else:
+                    print(f"Waypoint {waypoint_index+1} reached.")
+            else :
+                print("Racing to waypoint", f"X: {x_goal:.2f}, Y: {y_goal:.2f}, Z: {z_goal:.2f}")
+                cf.commander.send_position_setpoint(x_goal, y_goal, z_goal, 0)
+
+        elif state == STATE["LANDING"]:
+            if is_on_position(x_pos, y_pos, z_pos, x_pos, y_pos, 0):
+                print("Landing complete.")
+                cf.commander.send_stop_setpoint()
+                break
+            else:
+                # Send a landing command
+                cf.commander.send_position_setpoint(x_pos, y_pos, 0, 0)
+
+        time.sleep(DT)
 
 
-            # # Take-off
-            # for y in range(10):
-            #     cf.commander.send_hover_setpoint(0, 0, 0, y / 25)
-            #     time.sleep(0.1)
-            # for _ in range(20):
-            #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-            #     time.sleep(0.1)
-
-            # # Move 
-            # for _ in range(50):
-            #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-            #     time.sleep(0.1)
-            # for _ in range(50):
-            #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-            #     time.sleep(0.1)
-
-            # # Land
-            # for _ in range(20):
-            #     cf.commander.send_hover_setpoint(0, 0, 0, 0.4)
-            #     time.sleep(0.1)
-            # for y in range(10):
-            #     cf.commander.send_hover_setpoint(0, 0, 0, (10 - y) / 25)
-            #     time.sleep(0.1)
-
-            # cf.commander.send_stop_setpoint()
-            # break

@@ -336,8 +336,8 @@ uri = uri_helper.uri_from_env(default='radio://0/90/2M/E7E7E7E709')
 logging.basicConfig(level=logging.ERROR)
 
 
-GOAL_THRESHOLD = 0.2 # in m
-TAKE_OFF_HEIGHT = 0.5 # in m
+GOAL_THRESHOLD = 0.05 # in m
+TAKE_OFF_HEIGHT = 0.4 # in m
 
 STATE = {
     "TAKE_OFF": 0,
@@ -345,7 +345,15 @@ STATE = {
     "LANDING": 2,
 }
 DT = 0.1 # in seconds
-GOALS = [[0.2, 0, 0.5], [0.5, 0.5, 1.0], [1.5, 1.5, 0.5]] # Example goals for the drone to reach
+GOALS = [[0.0, -0.3, 0.8],
+         [2.05, -0.3, 0.8], #Gate 1
+         [2.05, -0.3, 1.1], #Gate 2
+         [2.05, 1.1, 1.1],
+         [2.05, 1.1, 1.4],
+         [-0.7, 1.1, 1.4],
+         [-0.7, 1.1, 1.6],
+         [-0.7, 0.0, 1.6],
+         [0.0, 0.0, 0.6]] # Example goals for the drone to reach
 
 
 if __name__ == "__main__":
@@ -372,51 +380,49 @@ if __name__ == "__main__":
 
     
     while le.is_connected:
-        while True :
         
-            x_pos = le.sensor_data['x']
-            y_pos = le.sensor_data['y']
-            z_pos = le.sensor_data['z']
-            roll = le.sensor_data['roll']
-            pitch = le.sensor_data['pitch']
-            yaw = le.sensor_data['yaw']
-            vbat = le.sensor_data['vbat']
+        x_pos = le.sensor_data['x']
+        y_pos = le.sensor_data['y']
+        z_pos = le.sensor_data['z']
+        roll = le.sensor_data['roll']
+        pitch = le.sensor_data['pitch']
+        yaw = le.sensor_data['yaw']
+        vbat = le.sensor_data['vbat']
 
-            print(f"X: {x_pos:.2f}, Y: {y_pos:.2f}, Z: {z_pos:.2f}, "f"Roll: {roll:.2f}, Pitch: {pitch:.2f}, Yaw: {yaw:.2f}, "f"VBat: {vbat:.2f}")
+        print(f"X: {x_pos:.2f}, Y: {y_pos:.2f}, Z: {z_pos:.2f}, "f"Roll: {roll:.2f}, Pitch: {pitch:.2f}, Yaw: {yaw:.2f}, "f"VBat: {vbat:.2f}")
 
-            if state == STATE["TAKE_OFF"]:
-                if is_on_position(x_pos, y_pos, z_pos, 0, 0, TAKE_OFF_HEIGHT):
-                    state = STATE["RACING"]
-                    print("Take-off complete. Transitioning to racing.")
+        if state == STATE["TAKE_OFF"]:
+            if is_on_position(x_pos, y_pos, z_pos, 0, 0, TAKE_OFF_HEIGHT):
+                state = STATE["RACING"]
+                print("Take-off complete. Transitioning to racing.")
+            else:
+                cf.commander.send_position_setpoint(0, 0, TAKE_OFF_HEIGHT, 0)
+                print("Takeing off...")
+                
+
+        elif state == STATE["RACING"]:
+            x_goal, y_goal, z_goal = GOALS[waypoint_index]
+
+            if is_on_position(x_pos, y_pos, z_pos, x_goal, y_goal, z_goal):
+                waypoint_index += 1
+                if waypoint_index >= len(GOALS):
+                    state = STATE["LANDING"]
+                    print("All waypoints reached. Transitioning to landing.")
                 else:
-                    cf.commander.send_position_setpoint(0, 0, TAKE_OFF_HEIGHT, 0)
-                    print("Takeing off...")
-                    
+                    print(f"Waypoint {waypoint_index+1} reached.")
+            else :
+                print("Racing to waypoint", f"X: {x_goal:.2f}, Y: {y_goal:.2f}, Z: {z_goal:.2f}")
+                cf.commander.send_position_setpoint(x_goal, y_goal, z_goal, 0)
 
-            elif state == STATE["RACING"]:
-                x_goal, y_goal, z_goal = GOALS[waypoint_index]
+        elif state == STATE["LANDING"]:
+            if is_on_position(x_pos, y_pos, z_pos, x_pos, y_pos, 0):
+                print("Landing complete.")
+                cf.commander.send_stop_setpoint()
+                break
+            else:
+                # Send a landing command
+                cf.commander.send_position_setpoint(x_pos, y_pos, 0, 0)
 
-                if is_on_position(x_pos, y_pos, z_pos, x_goal, y_goal, z_goal):
-                    waypoint_index += 1
-                    if waypoint_index >= len(GOALS):
-                        state = STATE["LANDING"]
-                        print("All waypoints reached. Transitioning to landing.")
-                    else:
-                        print(f"Waypoint {waypoint_index} reached.")
-                else :
-                    print("Racing to gate", f"X: {x_goal:.2f}, Y: {y_goal:.2f}, Z: {z_goal:.2f}")
-                    cf.commander.send_position_setpoint(x_goal, y_goal, z_goal, 0)
+        time.sleep(DT)
 
-            elif state == STATE["LANDING"]:
-                if is_on_position(x_pos, y_pos, z_pos, 0, 0, 0):
-                    print("Landing complete.")
-                    cf.commander.send_stop_setpoint()
-                    break
-                else:
-                    # Send a landing command
-                    cf.commander.send_position_setpoint(x_pos, y_pos, 0, 0)
 
-            time.sleep(DT)
-
-    
-    
