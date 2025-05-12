@@ -42,12 +42,13 @@ GATE_THRESHOLD = 0.05                 # Threshold for the position check, in met
 DT = 0.01                             # Time step for the main loop, in seconds
 LANDING_COORD = [0, 0, 0, 0]          # Landing position of the drone, in [m, m, m, rad]
 TAKE_OFF_COORD = [0, 0, 0.5, 0]       # Take off position of the drone, in [m, m, m, rad]
-GATES = [[1.0, 1.0, 1.0, 3*np.pi/4],  # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
-         [1.0, 2.0, 1.0, np.pi/4],
-         [-1.0, 2.0, 0.5, 3*np.pi/4],
-         [-1.0, 1.0, 0.5, np.pi/4]]
-OFFSET_GATE = 0.3                     # Offset to the leading and trailing gate, in meters
-RACING_VELOCITY = 1.45                # Velocity goal during the racing, in m/s
+GATES = [  # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
+        [1.16, -0.57, 0.83, np.deg2rad(-2)],
+        [2.20, 0.33, 1.20, np.deg2rad(90)],
+        [0.84, 0.65, 1.53, np.deg2rad(-177)],
+        [-0.85, 0.59, 1.65, np.deg2rad(-90)]]
+OFFSET_GATE = 0.15                     # Offset to the leading and trailing gate, in meters
+RACING_VELOCITY = 0.3               # Velocity goal during the racing, in m/s
 
 
 class LoggingExample:
@@ -127,7 +128,7 @@ class LoggingExample:
             print('Could not add Stabilizer log config, bad configuration.')
 
         # Start a timer to disconnect in 60s
-        t = Timer(120, self._cf.close_link) #WTF
+        t = Timer(500, self._cf.close_link) #WTF
         t.start()
 
     def _stab_log_error(self, logconf, msg):
@@ -379,9 +380,9 @@ class MotionPlanner3D():
         ax = fig.add_subplot(111, projection='3d')
 
         ax.plot(trajectory_setpoints[:,0], trajectory_setpoints[:,1], trajectory_setpoints[:,2], label="Minimum-Jerk Trajectory", linewidth=2)
-        ax.set_xlim(0, 8)
-        ax.set_ylim(0, 8)
-        ax.set_zlim(0, 4)
+        ax.set_xlim(-2.5, 2.5)
+        ax.set_ylim(-2.5, 2.5)
+        ax.set_zlim(0, 2.5)
 
         # Plot waypoints2laps
         waypoints_x = [p[0] for p in path_waypoints]
@@ -512,25 +513,28 @@ def create_trajectory(waypoints2laps):
     return setpoints, time_setpoints
 
 
-def trajectory_tracking(dt, timepoints, setpoints):
+def trajectory_tracking(timer, index_current_setpoint, setpoints, time_setpoints):
+    global DT
     if timer is None:
         # Begin timer and start trajectory
         timer = 0
         index_current_setpoint = 1
     else:
-        timer += dt
+        timer += DT
+
+    #print(f"Timer: {timer:.2f}, Index: {index_current_setpoint}")
 
     # Determine the current setpoint based on the time
     if timer is not None:
-        if index_current_setpoint < len(timepoints) - 1:
+        if index_current_setpoint < len(time_setpoints) - 1:
             # Update new setpoint
-            if timer >= timepoints[index_current_setpoint]:
+            if timer >= time_setpoints[index_current_setpoint]:
                 index_current_setpoint += 1
             current_setpoint = setpoints[index_current_setpoint,:]
         else:
             # Hover at the final setpoint
             current_setpoint = setpoints[-1]
-    return current_setpoint
+    return current_setpoint, timer, index_current_setpoint
 
 
 if __name__ == "__main__":
@@ -581,8 +585,9 @@ if __name__ == "__main__":
                 print("Taking off...")
             
         elif state == STATE["RACING"]:
-            control_command = trajectory_tracking(DT, time_setpoints, setpoints)
-            cf.commander.send_position_setpoint(control_command[0], control_command[1], control_command[2], control_command[3])
+            control_command, timer, index_current_setpoint = trajectory_tracking(timer, index_current_setpoint, setpoints, time_setpoints)
+            print(f"Control command: {control_command}")
+            cf.commander.send_position_setpoint(control_command[0], control_command[1], control_command[2], 0)
             print("Racing...")
 
         elif state == STATE["LANDING"]:
