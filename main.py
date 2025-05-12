@@ -38,17 +38,16 @@ STATE = {
     "RACING": 1,
     "LANDING": 2,
 }
-GATE_THRESHOLD = 0.05                 # Threshold for the position check, in meters
-DT = 0.01                             # Time step for the main loop, in seconds
-LANDING_COORD = [0, 0, 0, 0]          # Landing position of the drone, in [m, m, m, rad]
-TAKE_OFF_COORD = [0, 0, 0.5, 0]       # Take off position of the drone, in [m, m, m, rad]
-GATES = [  # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
-        [1.16, -0.57, 0.83, np.deg2rad(-2)],
-        [2.20, 0.33, 1.20, np.deg2rad(90)],
-        [0.84, 0.65, 1.53, np.deg2rad(-177)],
-        [-0.85, 0.59, 1.65, np.deg2rad(-90)]]
-OFFSET_GATE = 0.15                     # Offset to the leading and trailing gate, in meters
-RACING_VELOCITY = 0.3               # Velocity goal during the racing, in m/s
+GATE_THRESHOLD = 0.05                           # Threshold for the position check, in meters
+DT = 0.01                                       # Time step for the main loop, in seconds
+LANDING_COORD = [0, 0, 0, 0]                    # Landing position of the drone, in [m, m, m, rad]
+TAKE_OFF_COORD = [0, 0, 0.5, 0]                 # Take off position of the drone, in [m, m, m, rad]
+GATES = [[1.16, -0.57, 0.83, np.deg2rad(-2)],   # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
+         [2.20, 0.33, 1.20, np.deg2rad(90)],
+         [0.84, 0.65, 1.53, np.deg2rad(-177)],
+         [-0.85, 0.59, 1.65, np.deg2rad(-90)]]
+OFFSET_GATE = 0.15                              # Offset to the leading and trailing gate, in meters
+RACING_VELOCITY = 0.3                           # Velocity goal during the racing, in m/s
 
 
 class LoggingExample:
@@ -356,6 +355,7 @@ class MotionPlanner3D():
         trajectory_setpoints = np.hstack((x_vals, y_vals, z_vals, yaw_vals))
 
         self.plot(obs, path_waypoints, trajectory_setpoints)
+        self.plot_with_yaw(obs, path_waypoints, trajectory_setpoints)
             
         # Find the maximum absolute velocity during the segment
         vel_max = np.max(np.sqrt(v_x_vals**2 + v_y_vals**2 + v_z_vals**2))
@@ -375,6 +375,7 @@ class MotionPlanner3D():
         return trajectory_setpoints, time_setpoints
     
     def plot(self, obs, path_waypoints, trajectory_setpoints):
+        # trajectory_setpoints = np.hstack((x_vals, y_vals, z_vals, yaw_vals))
         # Plot 3D trajectory
         fig = plt.figure(figsize=(8, 6))
         ax = fig.add_subplot(111, projection='3d')
@@ -398,6 +399,48 @@ class MotionPlanner3D():
         ax.legend()
         plt.savefig("plot_trajectoy.png")
         plt.close()
+    
+    def plot_with_yaw(self, obs, path_waypoints, trajectory_setpoints):
+        fig = plt.figure(figsize=(8, 6))
+        ax = fig.add_subplot(111, projection='3d')
+
+        # Trajectory positions
+        x = trajectory_setpoints[:, 0]
+        y = trajectory_setpoints[:, 1]
+        z = trajectory_setpoints[:, 2]
+        yaw = trajectory_setpoints[:, 3]  # Assuming last column is yaw in radians
+        # print("Yaw: ", yaw)
+
+        # Draw yaw direction vectors at each point
+        length = 0.2  # Arrow length
+        u = np.cos(yaw) * length  # X component
+        v = np.sin(yaw) * length  # Y component
+        w = np.zeros_like(yaw)    # Z component (arrows in X-Y plane only)
+
+        ax.quiver(x, y, z, u, v, w, label='Yaw Direction',
+                   length=2.0, normalize=False, arrow_length_ratio=0.1, linewidth=1, color='black', alpha=0.4)
+        ax.plot(x, y, z, label="Minimum-Jerk Trajectory", linewidth=2)
+
+
+        ax.set_xlim(-2.5, 2.5)
+        ax.set_ylim(-2.5, 2.5)
+        ax.set_zlim(0, 2.5)
+
+        # Waypoints
+        waypoints_x = [p[0] for p in path_waypoints]
+        waypoints_y = [p[1] for p in path_waypoints]
+        waypoints_z = [p[2] for p in path_waypoints]
+        ax.scatter(waypoints_x, waypoints_y, waypoints_z, color='red', marker='o', label="Waypoints")
+
+        ax.set_xlabel("X Position")
+        ax.set_ylabel("Y Position")
+        ax.set_zlabel("Z Position")
+        ax.set_title("3D Motion Planning Trajectories")
+        ax.legend()
+        
+        plt.savefig("plot_trajectory_with_yaw.png")
+        plt.show()
+        #plt.close()
 
 
 def emergency_stop_callback(le):
@@ -538,20 +581,20 @@ def trajectory_tracking(timer, index_current_setpoint, setpoints, time_setpoints
 
 
 if __name__ == "__main__":
-    # Initialize the low-level drivers
-    cflib.crtp.init_drivers()
-    le = LoggingExample(URI)
-    cf = le._cf
+    # # Initialize the low-level drivers
+    # cflib.crtp.init_drivers()
+    # le = LoggingExample(URI)
+    # cf = le._cf
 
-    # Reset the Kalman filter
-    cf.param.set_value('kalman.resetEstimation', '1')
-    time.sleep(0.1)
-    cf.param.set_value('kalman.resetEstimation', '0')
-    time.sleep(2)
+    # # Reset the Kalman filter
+    # cf.param.set_value('kalman.resetEstimation', '1')
+    # time.sleep(0.1)
+    # cf.param.set_value('kalman.resetEstimation', '0')
+    # time.sleep(2)
 
-    # Emergency stop thread
-    emergency_stop_thread = threading.Thread(target=emergency_stop_callback, args=(le,))
-    emergency_stop_thread.start()
+    # # Emergency stop thread
+    # emergency_stop_thread = threading.Thread(target=emergency_stop_callback, args=(le,))
+    # emergency_stop_thread.start()
 
     # Local variables
     state = STATE["TAKE_OFF"]
@@ -566,41 +609,41 @@ if __name__ == "__main__":
     # Creating the trajectory for racing
     setpoints, time_setpoints = create_trajectory(waypoints2laps)
 
-    while le.is_connected:
-        time_start = time.time()
+    # while le.is_connected:
+    #     time_start = time.time()
 
-        # Get the current state of the drone
-        current_pos = [le.sensor_data['x'], le.sensor_data['y'], le.sensor_data['z']]
-        current_orientation= [le.sensor_data['roll'], le.sensor_data['pitch'], le.sensor_data['yaw']]
-        vbat = le.sensor_data['vbat']
-        # print(f"X: {current_pos[0]:.2f}, Y: {current_pos[1]:.2f}, Z: {current_pos[2]:.2f}, "f"Roll: {current_orientation[0]:.2f}, Pitch: {current_orientation[1]:.2f}, Yaw: {current_orientation[2]:.2f}, "f"VBat: {vbat:.2f}")
+    #     # Get the current state of the drone
+    #     current_pos = [le.sensor_data['x'], le.sensor_data['y'], le.sensor_data['z']]
+    #     current_orientation= [le.sensor_data['roll'], le.sensor_data['pitch'], le.sensor_data['yaw']]
+    #     vbat = le.sensor_data['vbat']
+    #     # print(f"X: {current_pos[0]:.2f}, Y: {current_pos[1]:.2f}, Z: {current_pos[2]:.2f}, "f"Roll: {current_orientation[0]:.2f}, Pitch: {current_orientation[1]:.2f}, Yaw: {current_orientation[2]:.2f}, "f"VBat: {vbat:.2f}")
 
-        # Send position setpoint based on the current state     
-        if state == STATE["TAKE_OFF"]:
-            if at_position(current_pos, TAKE_OFF_COORD[0:3]):
-                state = STATE["RACING"]
-                print("Take-off complete. Transitioning to racing.")
-            else:
-                cf.commander.send_position_setpoint(TAKE_OFF_COORD[0], TAKE_OFF_COORD[1], TAKE_OFF_COORD[2], TAKE_OFF_COORD[3])
-                print("Taking off...")
+    #     # Send position setpoint based on the current state     
+    #     if state == STATE["TAKE_OFF"]:
+    #         if at_position(current_pos, TAKE_OFF_COORD[0:3]):
+    #             state = STATE["RACING"]
+    #             print("Take-off complete. Transitioning to racing.")
+    #         else:
+    #             cf.commander.send_position_setpoint(TAKE_OFF_COORD[0], TAKE_OFF_COORD[1], TAKE_OFF_COORD[2], TAKE_OFF_COORD[3])
+    #             print("Taking off...")
             
-        elif state == STATE["RACING"]:
-            control_command, timer, index_current_setpoint = trajectory_tracking(timer, index_current_setpoint, setpoints, time_setpoints)
-            print(f"Control command: {control_command}")
-            cf.commander.send_position_setpoint(control_command[0], control_command[1], control_command[2], 0)
-            print("Racing...")
+    #     elif state == STATE["RACING"]:
+    #         control_command, timer, index_current_setpoint = trajectory_tracking(timer, index_current_setpoint, setpoints, time_setpoints)
+    #         print(f"Control command: {control_command}")
+    #         cf.commander.send_position_setpoint(control_command[0], control_command[1], control_command[2], 0)
+    #         print("Racing...")
 
-        elif state == STATE["LANDING"]:
-            if at_position(current_pos, LANDING_COORD[0:3]):
-                print("Landing complete.")
-                cf.commander.send_stop_setpoint()
-                break
-            else:
-                print("Landing...")
-                cf.commander.send_position_setpoint(LANDING_COORD[0], LANDING_COORD[1], LANDING_COORD[2], LANDING_COORD[3])
+    #     elif state == STATE["LANDING"]:
+    #         if at_position(current_pos, LANDING_COORD[0:3]):
+    #             print("Landing complete.")
+    #             cf.commander.send_stop_setpoint()
+    #             break
+    #         else:
+    #             print("Landing...")
+    #             cf.commander.send_position_setpoint(LANDING_COORD[0], LANDING_COORD[1], LANDING_COORD[2], LANDING_COORD[3])
 
-        # Sleep to respect the desired loop time
-        time_end = time.time()
-        if time_end - time_start < DT:
-            time.sleep(DT - (time_end - time_start))
-        time.sleep(DT)
+    #     # Sleep to respect the desired loop time
+    #     time_end = time.time()
+    #     if time_end - time_start < DT:
+    #         time.sleep(DT - (time_end - time_start))
+    #     time.sleep(DT)
