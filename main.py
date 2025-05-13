@@ -209,8 +209,9 @@ class MotionPlanner3D():
 
         for i in range(len(path_waypoints)-1):
             distances[i+1] = np.linalg.norm(np.array(path_waypoints[i]) - np.array(path_waypoints[i+1]))
-
+        
         self.times = distances/RACING_VELOCITY
+        
 
         for i in range(len(self.times)-1):
             self.times[i+1] = self.times[i] + self.times[i+1]
@@ -312,17 +313,20 @@ class MotionPlanner3D():
         return poly_coeffs
 
     def poly_setpoint_extraction(self, poly_coeffs, obs, path_waypoints):
-        # Uses the class features: self.disc_steps, self.times, self.poly_coeffs, self.vel_lim, self.acc_lim
-        x_vals, y_vals, z_vals = np.zeros((self.disc_steps*len(self.times),1)), np.zeros((self.disc_steps*len(self.times),1)), np.zeros((self.disc_steps*len(self.times),1))
-        v_x_vals, v_y_vals, v_z_vals = np.zeros((self.disc_steps*len(self.times),1)), np.zeros((self.disc_steps*len(self.times),1)), np.zeros((self.disc_steps*len(self.times),1))
-        a_x_vals, a_y_vals, a_z_vals = np.zeros((self.disc_steps*len(self.times),1)), np.zeros((self.disc_steps*len(self.times),1)), np.zeros((self.disc_steps*len(self.times),1))
+        nb_segments = len(self.times) - 1 # No sure of that but that solves the problem
 
-        # Define the time reference in self.disc_steps number of segements
-        time_setpoints = np.zeros(self.disc_steps*len(self.times))
+        # Initialize the setpoint arrays
+        x_vals, y_vals, z_vals = np.zeros((self.disc_steps*nb_segments,1)), np.zeros((self.disc_steps*nb_segments,1)), np.zeros((self.disc_steps*nb_segments,1))
+        v_x_vals, v_y_vals, v_z_vals = np.zeros((self.disc_steps*nb_segments,1)), np.zeros((self.disc_steps*nb_segments,1)), np.zeros((self.disc_steps*nb_segments,1))
+        a_x_vals, a_y_vals, a_z_vals = np.zeros((self.disc_steps*nb_segments,1)), np.zeros((self.disc_steps*nb_segments,1)), np.zeros((self.disc_steps*nb_segments,1))
+        yaw_vals = np.zeros((self.disc_steps*nb_segments, 1))
+
+        # Initialize the time setpoints
+        time_setpoints = np.zeros(self.disc_steps*nb_segments)
 
         for i in range(len(self.times)-1):
             time_setpoints[i*self.disc_steps:(i+1)*self.disc_steps] = np.linspace(self.times[i], self.times[i+1], self.disc_steps)
-
+        
         # Extract the x,y and z direction polynomial coefficient vectors
         coeff_x = poly_coeffs[:,0]
         coeff_y = poly_coeffs[:,1]
@@ -343,11 +347,19 @@ class MotionPlanner3D():
             a_y_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[2],coeff_y[seg_idx*6:(seg_idx+1)*6])
             a_z_vals[i,:] = np.dot(self.compute_poly_matrix(t-self.times[seg_idx])[2],coeff_z[seg_idx*6:(seg_idx+1)*6])
 
-        yaw_vals = np.zeros((self.disc_steps * len(self.times), 1))
-        
-        for i in range(len(time_setpoints) - 1):
-            # Compute the angle (yaw) between successive waypoints
+        for i in range(len(time_setpoints)-1):
+            # Compute the angle (yaw) between successive setpoints
             yaw_vals[i,:] = np.arctan2(y_vals[i + 1,:] - y_vals[i,:], x_vals[i + 1,:] - x_vals[i,:])
+            
+            if x_vals[i,:] == x_vals[i + 1,:] and y_vals[i,:] == y_vals[i + 1,:] and x_vals[i,:] != 0 and y_vals[i,:] != 0:
+                #print("Wow", i, x_vals[i,:], y_vals[i,:], yaw_vals[i,:])
+                # same x,y postion between segments (end of segment i = start of segment i+1)
+
+                # Dirty fix but necessary to avoid yaw discontinuity
+                yaw_vals[i,:] = yaw_vals[i-1,:]
+                yaw_vals[i + 1,:] = yaw_vals[i-1,:]
+            
+            # print(x_vals[i,:], y_vals[i,:], z_vals[i,:], yaw_vals[i,:])
         
         # Last yaw value
         yaw_vals[-1,:] = yaw_vals[-2,:]
@@ -409,7 +421,6 @@ class MotionPlanner3D():
         y = trajectory_setpoints[:, 1]
         z = trajectory_setpoints[:, 2]
         yaw = trajectory_setpoints[:, 3]  # Assuming last column is yaw in radians
-        # print("Yaw: ", yaw)
 
         # Draw yaw direction vectors at each point
         length = 0.2  # Arrow length
