@@ -201,7 +201,7 @@ class MotionPlanner3D():
         # - path_waypoints: The sequence of input path waypoints2laps provided by the path-planner, including the start and final goal position: Vector of m waypoints2laps, consisting of a tuple with three reference positions each as provided by AStar
 
         # TUNE THE FOLLOWING PARAMETERS (PART 2) ----------------------------------------------------------------- ##
-        self.disc_steps = 20 #Integer number steps to divide every path segment into to provide the reference positions for PID control # IDEAL: Between 10 and 20
+        self.disc_steps = 10 #Integer number steps to divide every path segment into to provide the reference positions for PID control # IDEAL: Between 10 and 20
         self.vel_lim = 7.0 #Velocity limit of the drone (m/s)
         self.acc_lim = 50.0 #Acceleration limit of the drone (m/s²)
 
@@ -314,19 +314,23 @@ class MotionPlanner3D():
 
     def poly_setpoint_extraction(self, poly_coeffs, obs, path_waypoints):
         nb_segments = len(self.times) - 1 # No sure of that but that solves the problem
+        self.disc_steps -= 1 # The number of discrete steps is the number of segments - 1
+        seg_intervals = (self.disc_steps*nb_segments) + 1
 
         # Initialize the setpoint arrays
-        x_vals, y_vals, z_vals = np.zeros((self.disc_steps*nb_segments,1)), np.zeros((self.disc_steps*nb_segments,1)), np.zeros((self.disc_steps*nb_segments,1))
-        v_x_vals, v_y_vals, v_z_vals = np.zeros((self.disc_steps*nb_segments,1)), np.zeros((self.disc_steps*nb_segments,1)), np.zeros((self.disc_steps*nb_segments,1))
-        a_x_vals, a_y_vals, a_z_vals = np.zeros((self.disc_steps*nb_segments,1)), np.zeros((self.disc_steps*nb_segments,1)), np.zeros((self.disc_steps*nb_segments,1))
-        yaw_vals = np.zeros((self.disc_steps*nb_segments, 1))
+        x_vals, y_vals, z_vals = np.zeros((seg_intervals, 1)), np.zeros((seg_intervals, 1)), np.zeros((seg_intervals, 1))
+        v_x_vals, v_y_vals, v_z_vals = np.zeros((seg_intervals, 1)), np.zeros((seg_intervals, 1)), np.zeros((seg_intervals, 1))
+        a_x_vals, a_y_vals, a_z_vals = np.zeros((seg_intervals, 1)), np.zeros((seg_intervals, 1)), np.zeros((seg_intervals, 1))
+        yaw_vals = np.zeros((seg_intervals, 1))
 
         # Initialize the time setpoints
-        time_setpoints = np.zeros(self.disc_steps*nb_segments)
+        time_setpoints = np.zeros(seg_intervals)
 
         for i in range(len(self.times)-1):
-            time_setpoints[i*self.disc_steps:(i+1)*self.disc_steps] = np.linspace(self.times[i], self.times[i+1], self.disc_steps)
+            time_setpoints[i*self.disc_steps:(i+1)*self.disc_steps] = np.linspace(self.times[i], self.times[i+1], self.disc_steps, endpoint=False)
         
+        time_setpoints[-1] = self.times[-1] # Add the last time setpoint
+
         # Extract the x,y and z direction polynomial coefficient vectors
         coeff_x = poly_coeffs[:,0]
         coeff_y = poly_coeffs[:,1]
@@ -350,17 +354,7 @@ class MotionPlanner3D():
         for i in range(len(time_setpoints)-1):
             # Compute the angle (yaw) between successive setpoints
             yaw_vals[i,:] = np.arctan2(y_vals[i + 1,:] - y_vals[i,:], x_vals[i + 1,:] - x_vals[i,:])
-            
-            if x_vals[i,:] == x_vals[i + 1,:] and y_vals[i,:] == y_vals[i + 1,:] and x_vals[i,:] != 0 and y_vals[i,:] != 0:
-                #print("Wow", i, x_vals[i,:], y_vals[i,:], yaw_vals[i,:])
-                # same x,y postion between segments (end of segment i = start of segment i+1)
-
-                # Dirty fix but necessary to avoid yaw discontinuity
-                yaw_vals[i,:] = yaw_vals[i-1,:]
-                yaw_vals[i + 1,:] = yaw_vals[i-1,:]
-            
-            # print(x_vals[i,:], y_vals[i,:], z_vals[i,:], yaw_vals[i,:])
-        
+                    
         # Last yaw value
         yaw_vals[-1,:] = yaw_vals[-2,:]
 
@@ -592,20 +586,20 @@ def trajectory_tracking(timer, index_current_setpoint, setpoints, time_setpoints
 
 
 if __name__ == "__main__":
-    # # Initialize the low-level drivers
-    # cflib.crtp.init_drivers()
-    # le = LoggingExample(URI)
-    # cf = le._cf
+    # Initialize the low-level drivers
+    cflib.crtp.init_drivers()
+    le = LoggingExample(URI)
+    cf = le._cf
 
-    # # Reset the Kalman filter
-    # cf.param.set_value('kalman.resetEstimation', '1')
-    # time.sleep(0.1)
-    # cf.param.set_value('kalman.resetEstimation', '0')
-    # time.sleep(2)
+    # Reset the Kalman filter
+    cf.param.set_value('kalman.resetEstimation', '1')
+    time.sleep(0.1)
+    cf.param.set_value('kalman.resetEstimation', '0')
+    time.sleep(2)
 
-    # # Emergency stop thread
-    # emergency_stop_thread = threading.Thread(target=emergency_stop_callback, args=(le,))
-    # emergency_stop_thread.start()
+    # Emergency stop thread
+    emergency_stop_thread = threading.Thread(target=emergency_stop_callback, args=(le,))
+    emergency_stop_thread.start()
 
     # Local variables
     state = STATE["TAKE_OFF"]
@@ -620,41 +614,40 @@ if __name__ == "__main__":
     # Creating the trajectory for racing
     setpoints, time_setpoints = create_trajectory(waypoints2laps)
 
-    # while le.is_connected:
-    #     time_start = time.time()
+    while le.is_connected:
+        time_start = time.time()
 
-    #     # Get the current state of the drone
-    #     current_pos = [le.sensor_data['x'], le.sensor_data['y'], le.sensor_data['z']]
-    #     current_orientation= [le.sensor_data['roll'], le.sensor_data['pitch'], le.sensor_data['yaw']]
-    #     vbat = le.sensor_data['vbat']
-    #     # print(f"X: {current_pos[0]:.2f}, Y: {current_pos[1]:.2f}, Z: {current_pos[2]:.2f}, "f"Roll: {current_orientation[0]:.2f}, Pitch: {current_orientation[1]:.2f}, Yaw: {current_orientation[2]:.2f}, "f"VBat: {vbat:.2f}")
+        # Get the current state of the drone
+        current_pos = [le.sensor_data['x'], le.sensor_data['y'], le.sensor_data['z']]
+        current_orientation= [le.sensor_data['roll'], le.sensor_data['pitch'], le.sensor_data['yaw']]
+        vbat = le.sensor_data['vbat']
+        # print(f"X: {current_pos[0]:.2f}, Y: {current_pos[1]:.2f}, Z: {current_pos[2]:.2f}, "f"Roll: {current_orientation[0]:.2f}, Pitch: {current_orientation[1]:.2f}, Yaw: {current_orientation[2]:.2f}, "f"VBat: {vbat:.2f}")
 
-    #     # Send position setpoint based on the current state     
-    #     if state == STATE["TAKE_OFF"]:
-    #         if at_position(current_pos, TAKE_OFF_COORD[0:3]):
-    #             state = STATE["RACING"]
-    #             print("Take-off complete. Transitioning to racing.")
-    #         else:
-    #             cf.commander.send_position_setpoint(TAKE_OFF_COORD[0], TAKE_OFF_COORD[1], TAKE_OFF_COORD[2], TAKE_OFF_COORD[3])
-    #             print("Taking off...")
+        # Send position setpoint based on the current state     
+        if state == STATE["TAKE_OFF"]:
+            if at_position(current_pos, TAKE_OFF_COORD[0:3]):
+                state = STATE["RACING"]
+                print("Take-off complete. Transitioning to racing.")
+            else:
+                cf.commander.send_position_setpoint(TAKE_OFF_COORD[0], TAKE_OFF_COORD[1], TAKE_OFF_COORD[2], TAKE_OFF_COORD[3])
+                print("Taking off...")
             
-    #     elif state == STATE["RACING"]:
-    #         control_command, timer, index_current_setpoint = trajectory_tracking(timer, index_current_setpoint, setpoints, time_setpoints)
-    #         print(f"Control command: {control_command}")
-    #         cf.commander.send_position_setpoint(control_command[0], control_command[1], control_command[2], 0)
-    #         print("Racing...")
+        elif state == STATE["RACING"]:
+            control_command, timer, index_current_setpoint = trajectory_tracking(timer, index_current_setpoint, setpoints, time_setpoints)
+            print(f"Control command: {control_command}")
+            cf.commander.send_position_setpoint(control_command[0], control_command[1], control_command[2], 0)
+            print("Racing...")
 
-    #     elif state == STATE["LANDING"]:
-    #         if at_position(current_pos, LANDING_COORD[0:3]):
-    #             print("Landing complete.")
-    #             cf.commander.send_stop_setpoint()
-    #             break
-    #         else:
-    #             print("Landing...")
-    #             cf.commander.send_position_setpoint(LANDING_COORD[0], LANDING_COORD[1], LANDING_COORD[2], LANDING_COORD[3])
+        elif state == STATE["LANDING"]:
+            if at_position(current_pos, LANDING_COORD[0:3]):
+                print("Landing complete.")
+                cf.commander.send_stop_setpoint()
+                break
+            else:
+                print("Landing...")
+                cf.commander.send_position_setpoint(LANDING_COORD[0], LANDING_COORD[1], LANDING_COORD[2], LANDING_COORD[3])
 
-    #     # Sleep to respect the desired loop time
-    #     time_end = time.time()
-    #     if time_end - time_start < DT:
-    #         time.sleep(DT - (time_end - time_start))
-    #     time.sleep(DT)
+        # Sleep to respect the desired loop time
+        time_end = time.time()
+        if time_end - time_start < DT:
+            time.sleep(DT - (time_end - time_start))
