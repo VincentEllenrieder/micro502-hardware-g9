@@ -39,15 +39,15 @@ STATE = {
     "LANDING": 2,
 }
 GATE_THRESHOLD = 0.05                           # Threshold for the position check, in meters
-DT = 0.01                                       # Time step for the main loop, in seconds
+DT = 0.0001                                       # Time step for the main loop, in seconds
 LANDING_COORD = [0, 0, 0, 0]                    # Landing position of the drone, in [m, m, m, rad]
 TAKE_OFF_COORD = [0, 0, 0.5, 0]                 # Take off position of the drone, in [m, m, m, rad]
-GATES = [[1.16, -0.57, 0.83, np.deg2rad(-2)],   # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
-         [2.20, 0.33, 1.20, np.deg2rad(90)],
-         [0.84, 0.65, 1.53, np.deg2rad(-177)],
-         [-0.85, 0.59, 1.65, np.deg2rad(-90)]]
+GATES = [[1.16, -0.57, 0.50, np.deg2rad(-2)],   # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
+         [2.20, 0.33, 0.50, np.deg2rad(90)],
+         [0.84, 0.65, 0.50, np.deg2rad(-177)],
+         [-0.85, 0.59, 0.50, np.deg2rad(-90)]]
 OFFSET_GATE = 0.15                              # Offset to the leading and trailing gate, in meters
-RACING_VELOCITY = 0.3                           # Velocity goal during the racing, in m/s
+RACING_VELOCITY = 1.6                           # Velocity goal during the racing, in m/s
 
 
 class LoggingExample:
@@ -444,8 +444,8 @@ class MotionPlanner3D():
         ax.legend()
         
         plt.savefig("plot_trajectory_with_yaw.png")
-        plt.show()
-        #plt.close()
+        #plt.show()
+        plt.close()
 
 
 def emergency_stop_callback(le):
@@ -635,7 +635,7 @@ if __name__ == "__main__":
         elif state == STATE["RACING"]:
             control_command, timer, index_current_setpoint = trajectory_tracking(timer, index_current_setpoint, setpoints, time_setpoints)
             print(f"Control command: {control_command}")
-            cf.commander.send_position_setpoint(control_command[0], control_command[1], control_command[2], 0)
+            cf.commander.send_position_setpoint(control_command[0], control_command[1], control_command[2], np.rad2deg(control_command[3]))
             print("Racing...")
 
         elif state == STATE["LANDING"]:
@@ -649,5 +649,6 @@ if __name__ == "__main__":
 
         # Sleep to respect the desired loop time
         time_end = time.time()
+        print(f"Time taken for loop: {time_end - time_start:.4f} seconds")
         if time_end - time_start < DT:
             time.sleep(DT - (time_end - time_start))
