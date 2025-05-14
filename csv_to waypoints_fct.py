@@ -18,33 +18,36 @@ def csv_to_waypoints(csv_file_path):
                                 4,1,0,1.2,4.71225,0.4
 
     Returns:
-        waypoints (list): list of dictionaries of waypoints with each the following keys:
+        waypoints (dict): dictionary of dictionaries of waypoints with each the following keys:
         'x', 'y', 'z', 'theta', 'size', 'corners', 'normal_vect'
 
-        example of 1st waypoint (the "[1]" is the name of the gate not necessarily the index):
-            waypoints[1] = {
-                'x': 0.0, 'y': -1.0, 'z': 1.0,      # as floats
-                'theta': 0.0, 'size': 0.4,          # as floats
-                'corners':                          # as a tuple of 4 arrays    
-                    ( [0.0, -1.2, 0.8],
-                    [0.0, -1.2, 1.2],
-                    [0.0, -0.8, 1.2],
-                    [0.0, -0.8, 0.8] ),
-                'normal_vect':                      # as a tuple 
-                    (1.0, 0.0, -0.0)
-            }
+        example (the "[1]" is the name of the gate not necessarily the index):
+            waypoints = {
+                waypoints[1]: {
+                    'x': 0.0, 'y': -1.0, 'z': 1.0,      # as floats
+                    'theta': 0.0, 'size': 0.4,          # as floats
+                    'corners':                          # as a tuple of 4 arrays    
+                        ( [0.0, -1.2, 0.8],
+                        [0.0, -1.2, 1.2],
+                        [0.0, -0.8, 1.2],
+                        [0.0, -0.8, 0.8] ),
+                    'normal_vect':                      # as a tuple 
+                        (1.0, 0.0, -0.0)
+                },
+                waypoints[2]: { 
+                    ...
     """
 
     # Read the CSV file
     csv_read = pd.read_csv(csv_file_path)
     # Convert the DataFrame to a list of dictionaries
-    waypoints = csv_read.to_dict(orient='records')
+    waypoints_init = csv_read.to_dict(orient='records')
     
     # init dictionary
-    waypoints_dict = {}
+    waypoints = {}
     
     # Convert the list of dictionaries to a dictionary with Gate as the key
-    for w in waypoints:
+    for w in waypoints_init:
         x = float(w['x'])
         y = float(w['y'])
         z = float(w['z'])
@@ -76,9 +79,9 @@ def csv_to_waypoints(csv_file_path):
         normal_vect[1] = 0 - normal_vect[1]
         
         # Attributing the values to the dictionary
-        waypoints_dict[int(w['Gate'])] = {
+        waypoints[int(w['Gate'])] = {
             'x': x, 'y': y, 'z': z, 'theta': theta,'size': size,
-            'corners': (                # reordered:
+            'corners': (                           # reordered:
                 np.round(corners[3],4).tolist(),     # bottom right
                 np.round(corners[2],4).tolist(),     # top right
                 np.round(corners[1],4).tolist(),     # top left
@@ -88,7 +91,6 @@ def csv_to_waypoints(csv_file_path):
                 round(float(normal_vect[1]),4),  # y
                 round(float(normal_vect[2]),4) ) # z
         }
-        waypoints = waypoints_dict
 
     return waypoints
 
@@ -117,4 +119,10 @@ if __name__ == "__main__":
         print(f"    {waypoints[i]['corners'][2]},")
         print(f"    {waypoints[i]['corners'][3]})")
         print(f"  normal_vect:\n    {waypoints[i]['normal_vect']}")
+    print("\n\n")
+    
+    # Print the type of "waypoints"
+    print(f"Type of waypoints: {type(waypoints)}")
+    # Print the type of "waypoints[1]"
+    print(f"Type of waypoints[1]: {type(waypoints[1])}")
     print("\n")
