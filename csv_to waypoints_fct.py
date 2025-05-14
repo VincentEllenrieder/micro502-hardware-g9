@@ -93,9 +93,17 @@ if __name__ == "__main__":
     waypoints = csv_to_waypoints(csv_file_path)
     
     # Print the waypoints
-    for gate, data in waypoints.items():
-        print(f"\nGate {gate}:")
-        print(f"  x: {data['x']}, y: {data['y']}, z: {data['z']}, theta: {data['theta']}, size: {data['size']}")
-        print(f"  corners: {data['corners']}")
-        print(f"  normal_vect: {data['normal_vect']}")
+    # ATTENTION: les gates sont numérotés selon le nom "Gate" dans le csv donc dans notre cas 1,2,3,4
+    # ce sont les "noms" des gates et pas un numéro d'ordre qui commence à 0
+    for i in range(1,5):
+        print(f"\nGate {i}:")
+        print(f"  x,y,z: {waypoints[i]['x']}, {waypoints[i]['y']}, {waypoints[i]['z']}")
+        print(f"  theta: {waypoints[i]['theta']}")
+        print(f"  size:  {waypoints[i]['size']}")
+        print(f"  corners:")
+        print(f"   ({waypoints[i]['corners'][0]},")
+        print(f"    {waypoints[i]['corners'][1]},")
+        print(f"    {waypoints[i]['corners'][2]},")
+        print(f"    {waypoints[i]['corners'][3]})")
+        print(f"  normal_vect:\n    {waypoints[i]['normal_vect']}")
     print("\n")
