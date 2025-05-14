@@ -6,22 +6,33 @@ import numpy as np
 
 def csv_to_waypoints(csv_file_path):
     """
-    Convert a CSV file to a list of waypoints.
+    Convert a CSV file to a list of dictionaries of the waypoints.
 
     Args:
         csv_file_path (str): Path to the CSV file containing 4 gates.
             CSV file example:
                                 Gate,x,y,z,theta,size
-                                1,0,-0.2,1,0,0.4
-                                2,0.5,-0.5,1.5,1.57075,0.4
-                                3,1,0,0.8,3.1415,0.4
-                                4,-0.5,0.5,1.2,0,0.4
+                                1,0,-1,1,0.0,0.4
+                                2,1,0,1.5,1.57075,0.4
+                                3,0,1,0.8,3.1415,0.4
+                                4,1,0,1.2,4.71225,0.4
 
     Returns:
-        waypoints (dict): dictionary of waypoints with values 'Gate' and each the following keys:
+        waypoints (list): list of dictionaries of waypoints with each the following keys:
         'x', 'y', 'z', 'theta', 'size', 'corners', 'normal_vect'
-        
-        with x,y,z,theta,size as floats, corners as a tuple of 4 array and normal_vect as a tuple.
+
+        example of 1st waypoint (the "[1]" is the name of the gate not necessarily the index):
+            waypoints[1] = {
+                'x': 0.0, 'y': -1.0, 'z': 1.0,      # as floats
+                'theta': 0.0, 'size': 0.4,          # as floats
+                'corners':                          # as a tuple of 4 arrays    
+                    ( [0.0, -1.2, 0.8],
+                    [0.0, -1.2, 1.2],
+                    [0.0, -0.8, 1.2],
+                    [0.0, -0.8, 0.8] ),
+                'normal_vect':                      # as a tuple 
+                    (1.0, 0.0, -0.0)
+            }
     """
 
     # Read the CSV file
