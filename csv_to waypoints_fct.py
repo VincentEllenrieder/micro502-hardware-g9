@@ -44,7 +44,8 @@ def csv_to_waypoints(csv_file_path):
     waypoints_init = csv_read.to_dict(orient='records')
     
     # init dictionary
-    waypoints = {}
+    waypoints_simple_planner = {}
+    waypoints_motion_planner = []
     
     # Convert the list of dictionaries to a dictionary with Gate as the key
     for w in waypoints_init:
@@ -79,7 +80,7 @@ def csv_to_waypoints(csv_file_path):
         normal_vect[1] = 0 - normal_vect[1]
         
         # Attributing the values to the dictionary
-        waypoints[int(w['Gate'])] = {
+        waypoints_simple_planner[int(w['Gate'])] = {
             'x': x, 'y': y, 'z': z, 'theta': theta,'size': size,
             'corners': (                           # reordered:
                 np.round(corners[3],4).tolist(),     # bottom right
@@ -91,8 +92,9 @@ def csv_to_waypoints(csv_file_path):
                 round(float(normal_vect[1]),4),  # y
                 round(float(normal_vect[2]),4) ) # z
         }
+        waypoints_motion_planner.append([round(x, 2), round(y, 2), round(z, 2), theta])  # keep theta as rad
 
-    return waypoints
+    return waypoints_simple_planner, waypoints_motion_planner 
 
 
 if __name__ == "__main__":
@@ -100,10 +102,10 @@ if __name__ == "__main__":
     # Example 
     current_dir = os.path.dirname(__file__)
     csv_file_path = os.path.join(current_dir, "csv_files", "gates_info.csv")
-    csv_file_path = os.path.join(current_dir, "csv_files", "test.csv")
+    # csv_file_path = os.path.join(current_dir, "csv_files", "test.csv")
     
     # Convert the CSV file to waypoints with the function
-    waypoints = csv_to_waypoints(csv_file_path)
+    waypoints,motion = csv_to_waypoints(csv_file_path)
     
     # Print the waypoints
     # ATTENTION: les gates sont numérotés selon le nom "Gate" dans le csv donc dans notre cas 1,2,3,4
@@ -126,3 +128,5 @@ if __name__ == "__main__":
     # Print the type of "waypoints[1]"
     print(f"Type of waypoints[1]: {type(waypoints[1])}")
     print("\n")
+
+    print(f"motion planner: {motion}")
