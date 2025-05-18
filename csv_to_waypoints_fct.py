@@ -52,7 +52,7 @@ def csv_to_waypoints(csv_file_path):
         x = float(w['x'])
         y = float(w['y'])
         z = float(w['z'])
-        theta = float(w['theta'])
+        theta = float(w['theta']) - np.pi/2  # to have the same orientation as the motion planner
         size = float(w['size'])
         
         # Corners coordinates

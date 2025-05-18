@@ -27,11 +27,18 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 import matplotlib
+import os
+import pandas as pd
+from csv_to_waypoints_fct import csv_to_waypoints
 
 
 # Global variables
 URI = uri_helper.uri_from_env(default='radio://0/90/2M/E7E7E7E709')
 logging.basicConfig(level=logging.ERROR) # Only output errors from the logging framework
+
+# csv file path
+current_dir = os.path.dirname(__file__)
+csv_file_path = os.path.join(current_dir, "csv_files", "gates_info.csv")
 
 STATE = {
     "TAKE_OFF": 0,
@@ -42,10 +49,13 @@ GATE_THRESHOLD = 0.05                           # Threshold for the position che
 DT = 0.0001                                       # Time step for the main loop, in seconds
 LANDING_COORD = [0, 0, 0, 0]                    # Landing position of the drone, in [m, m, m, rad]
 TAKE_OFF_COORD = [0, 0, 0.5, 0]                 # Take off position of the drone, in [m, m, m, rad]
-GATES = [[1.16, -0.57, 0.50, np.deg2rad(-2)],   # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
-         [2.20, 0.33, 0.50, np.deg2rad(90)],
-         [0.84, 0.65, 0.50, np.deg2rad(-177)],
-         [-0.85, 0.59, 0.50, np.deg2rad(-90)]]
+# GATES = [[1.16, -0.57, 0.50, np.deg2rad(-2)],   # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
+#          [2.20, 0.33, 0.50, np.deg2rad(90)],
+#          [0.84, 0.65, 0.50, np.deg2rad(-177)],
+#          [-0.85, 0.59, 0.50, np.deg2rad(-90)]]
+SIMPLE_GATES, GATES = csv_to_waypoints(csv_file_path) # Load the gates from the CSV file
+print(SIMPLE_GATES)
+print(GATES)
 OFFSET_GATE = 0.15                              # Offset to the leading and trailing gate, in meters
 RACING_VELOCITY = 1.6                           # Velocity goal during the racing, in m/s
 
