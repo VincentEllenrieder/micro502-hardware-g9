@@ -48,17 +48,17 @@ STATE = {
 GATE_THRESHOLD = 0.05                           # Threshold for the position check, in meters
 DT = 0.0001                                       # Time step for the main loop, in seconds
 LANDING_COORD = [0, 0, 0, 0]                    # Landing position of the drone, in [m, m, m, rad]
-TAKE_OFF_COORD = [0, 0, 0.5, 0]                 # Take off position of the drone, in [m, m, m, rad]
-GATES = [[0.2, -0.35, 1.37, np.deg2rad(-60)],   # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
+TAKE_OFF_COORD = [0, 0, 1.0,  np.deg2rad(-60)]                 # Take off position of the drone, in [m, m, m, rad]
+GATES = [[0.2, -0.35, 1.3, np.deg2rad(-60)],   # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
          [0.8, -0.6, 1.25, np.deg2rad(-1.5)],
          [2.2, 0.3, 1.33, np.deg2rad(120)],
          [-0.4, 0.82, 0.87, np.deg2rad(-123)]]
-SIMPLE_GATES, GATES = csv_to_waypoints(csv_file_path) # Load the gates from the CSV file
-print(SIMPLE_GATES)
+# SIMPLE_GATES, GATES = csv_to_waypoints(csv_file_path) # Load the gates from the CSV file
+# print(SIMPLE_GATES)
 print(GATES)
 OFFSET_GATE = 0.15                              # Offset to the leading and trailing gate, in meters
-RACING_VELOCITY = 1.6                           # Velocity goal during the racing, in m/s
-
+RACING_VELOCITY = 1.0                           # Velocity goal during the racing, in m/s
+PLANNER_STEP = 10
 
 class LoggingExample:
     """
@@ -207,11 +207,12 @@ class MotionPlanner3D():
         self.trajectory_setpoints, self.time_setpoints = self.poly_setpoint_extraction(poly_coeffs, obs, path_waypoints)
 
     def init_params(self, path_waypoints):
+        global PLANNER_STEP, RACING_VELOCITY
         # Inputs:
         # - path_waypoints: The sequence of input path waypoints2laps provided by the path-planner, including the start and final goal position: Vector of m waypoints2laps, consisting of a tuple with three reference positions each as provided by AStar
 
         # TUNE THE FOLLOWING PARAMETERS (PART 2) ----------------------------------------------------------------- ##
-        self.disc_steps = 10 #Integer number steps to divide every path segment into to provide the reference positions for PID control # IDEAL: Between 10 and 20
+        self.disc_steps = PLANNER_STEP #Integer number steps to divide every path segment into to provide the reference positions for PID control # IDEAL: Between 10 and 20
         self.vel_lim = 7.0 #Velocity limit of the drone (m/s)
         self.acc_lim = 50.0 #Acceleration limit of the drone (m/s²)
 
