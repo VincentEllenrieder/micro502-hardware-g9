@@ -46,11 +46,11 @@ STATE = {
     "LANDING": 2,
 }
 GATE_THRESHOLD = 0.05                           # Threshold for the position check, in meters
-DT = 0.0001                                       # Time step for the main loop, in seconds
+DT = 0.01                                     # Time step for the main loop, in seconds
 LANDING_COORD = [0, 0, 0, 0]                    # Landing position of the drone, in [m, m, m, rad]
 TAKE_OFF_COORD = [0, 0, 1.0,  np.deg2rad(-60)]                 # Take off position of the drone, in [m, m, m, rad]
 GATES = [[0.2, -0.35, 1.3, np.deg2rad(-60)],   # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
-         [0.8, -0.6, 1.25, np.deg2rad(-1.5)],
+         [0.8, -0.6, 1.15, np.deg2rad(-1.5)],
          [2.2, 0.3, 1.33, np.deg2rad(120)],
          [-0.4, 0.82, 0.87, np.deg2rad(-123)]]
 # SIMPLE_GATES, GATES = csv_to_waypoints(csv_file_path) # Load the gates from the CSV file
