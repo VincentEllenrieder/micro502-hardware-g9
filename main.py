@@ -47,7 +47,7 @@ STATE = {
 }
 GATE_THRESHOLD = 0.05                           # Threshold for the position check, in meters
 DT = 0.01                                     # Time step for the main loop, in seconds
-LANDING_COORD = [0, 0, 0, 0]                    # Landing position of the drone, in [m, m, m, rad]
+LANDING_COORD = [0, 0, 0.3, 0]                    # Landing position of the drone, in [m, m, m, rad]
 TAKE_OFF_COORD = [0, 0, 1.0,  np.deg2rad(-60)]                 # Take off position of the drone, in [m, m, m, rad]
 GATES = [[0.2, -0.35, 1.3, np.deg2rad(-60)],   # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
          [0.8, -0.6, 1.15, np.deg2rad(-1.5)],
@@ -648,6 +648,9 @@ if __name__ == "__main__":
             print(f"Control command: {control_command}")
             cf.commander.send_position_setpoint(control_command[0], control_command[1], control_command[2], np.rad2deg(control_command[3]))
             print("Racing...")
+            if (index_current_setpoint == len(time_setpoints) - 1) and (at_position(current_pos, setpoints[-1][0:3])):
+                state = STATE["LANDING"]
+                print("Racing complete. Transitioning to landing.")
 
         elif state == STATE["LANDING"]:
             if at_position(current_pos, LANDING_COORD[0:3]):
