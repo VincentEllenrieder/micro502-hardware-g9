@@ -378,6 +378,10 @@ if __name__ == "__main__":
     cf.param.set_value('kalman.resetEstimation', '0')
     time.sleep(2)
 
+    cf.param.set_value('velCtlMaxVelXY', '0.4')  # default = 1.0 m/s
+    cf.param.set_value('velCtlMaxVelZ', '0.3')   # default = 0.5 m/s
+    time.sleep(0.5)
+
     # Emergency stop thread
     emergency_stop_thread = threading.Thread(target=emergency_stop_callback, args=(le,))
     emergency_stop_thread.start()
