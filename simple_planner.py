@@ -16,7 +16,7 @@ GATES_DATA = {
     }
     for i in range(N_GATES)
 }
-DISTANCE_FROM_GATE = 0.3                # Distance from the normal point to the centroid of the gate
+DISTANCE_FROM_GATE = 0.15               # Distance from the normal point to the centroid of the gate
 ANGLE_PENALTY = 1.0                     # Penalty for path choice with high turning angles
 X_START, Y_START, Z_START = 0.0, 0.0, 1.0
 
@@ -86,9 +86,9 @@ def csv_to_waypoints(csv_file_path):
         wp.extend([np1, np2])
         gate_ids.extend([idx, idx])
 
-    print("GATES_DATA:", GATES_DATA)
-    print("Unsorted waypoints:", wp)
-    print("Unsorted gate_ids:", gate_ids)
+    # print("GATES_DATA:", GATES_DATA)
+    # print("Unsorted waypoints:", wp)
+    # print("Unsorted gate_ids:", gate_ids)
 
     return wp, gate_ids
 
@@ -228,11 +228,11 @@ def extract_best_path():
     wp, gate_ids = csv_to_waypoints(csv_path)    
     best_wp_order, best_wp_indices, best_gate_ids_order, min_cost = sort_wp_min_energy(wp, gate_ids)
 
-    visualize_gates(GATES_DATA, best_wp_order)
-    print("Best path:", best_wp_order)
-    print("Best indices:", best_wp_indices)
-    print("Best gate IDs order:", best_gate_ids_order)
-    print("Minimum cost:", min_cost)
+    # visualize_gates(GATES_DATA, best_wp_order)
+    # print("Best path:", best_wp_order)
+    # print("Best indices:", best_wp_indices)
+    # print("Best gate IDs order:", best_gate_ids_order)
+    # print("Minimum cost:", min_cost)
 
     best_wp_order_with_centroids = []
     for i in range(0, len(best_wp_order), 2):
