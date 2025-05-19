@@ -24,10 +24,7 @@ import cflib.crtp
 from cflib.crazyflie import Crazyflie
 from cflib.crazyflie.log import LogConfig
 from cflib.utils import uri_helper
-from simple_planner import extract_best_path, sort_wp_min_energy, csv_to_waypoints
-from itertools import permutations, product
-import pandas as pd
-import numpy as np
+from simple_planner import extract_best_path
 
 
 class LoggingExample:
@@ -365,16 +362,8 @@ DT = 0.1 # in seconds
 # gate 3 : 2.20 0.26 1.26 90
 # gate 4 : 0.84 0.65 1.65 -174
 # goals = change one axis at a time
-GOALS = [[0.0, -0.57, 0.4],
-         [0.0, -0.57, 0.83], #Gate 1
-         [1.16, -0.57, 0.83], #Gate 2
-         [2.20, -0.57, 0.83],
-         [2.20, -0.57, 1.26],
-         [2.20, 0.26, 1.26],
-         [2.20, 0.65, 1.26],
-         [2.20, 0.65, 1.65],
-         [0.54, 0.65, 1.65]
-         ] # Example goals for the drone to reach
+GOALS = extract_best_path(csv_path="gates_info_example.csv")
+print("GOALS: ", GOALS)
 
 
 if __name__ == "__main__":
@@ -395,8 +384,7 @@ if __name__ == "__main__":
 
     print("Starting control")
 
-    state = STATE["TAKE_OFF"]
-    take_off_reached = False
+    state = STATE["RACING"]
     waypoint_index = 0
 
     
@@ -411,17 +399,8 @@ if __name__ == "__main__":
         vbat = le.sensor_data['vbat']
 
         print(f"X: {x_pos:.2f}, Y: {y_pos:.2f}, Z: {z_pos:.2f}, "f"Roll: {roll:.2f}, Pitch: {pitch:.2f}, Yaw: {yaw:.2f}, "f"VBat: {vbat:.2f}")
-
-        if state == STATE["TAKE_OFF"]:
-            if is_on_position(x_pos, y_pos, z_pos, 0, 0, TAKE_OFF_HEIGHT):
-                state = STATE["RACING"]
-                print("Take-off complete. Transitioning to racing.")
-            else:
-                cf.commander.send_position_setpoint(0, 0, TAKE_OFF_HEIGHT, 0)
-                print("Takeing off...")
-                
-
-        elif state == STATE["RACING"]:
+              
+        if state == STATE["RACING"]:
             x_goal, y_goal, z_goal = GOALS[waypoint_index]
 
             if is_on_position(x_pos, y_pos, z_pos, x_goal, y_goal, z_goal):

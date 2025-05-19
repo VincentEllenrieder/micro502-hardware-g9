@@ -219,12 +219,12 @@ def visualize_gates(GATES_DATA, best_path=None):
     plt.tight_layout()
     plt.show()
 
-def extract_best_path():
+def extract_best_path(csv_path="gates_info_example.csv"):
     """
     Extract the best path from the CSV file that minimizes sharp turns + visualize the path and the gates data.
 
     """
-    csv_path = "gates_info_example.csv"
+
     wp, gate_ids = csv_to_waypoints(csv_path)    
     best_wp_order, best_wp_indices, best_gate_ids_order, min_cost = sort_wp_min_energy(wp, gate_ids)
 
@@ -248,9 +248,12 @@ def extract_best_path():
         best_wp_order_with_centroids.append(np2)
 
     best_path = best_wp_order_with_centroids
-    best_path.insert(0, [X_START, Y_START, Z_START]) # add takeoff point at beginning of the path
+    best_path.insert(0, np.array([X_START, Y_START, Z_START])) # add takeoff point at beginning of the path
     best_path.extend(best_wp_order_with_centroids)   # add second lap
-    best_path.extend([[X_START, Y_START, Z_START]])  # add final point at the end of the path
+    best_path.extend([np.array([X_START, Y_START, Z_START])])  # add final point at the end of the path
+
+    for i in range(len(best_path)):
+        best_path[i] = best_path[i].tolist()  # Convert to list for easier manipulation
 
     return best_path
 
