@@ -337,7 +337,7 @@ uri = uri_helper.uri_from_env(default='radio://0/90/2M/E7E7E7E709')
 # Only output errors from the logging framework
 logging.basicConfig(level=logging.ERROR)
 
-
+# Group defined parameters
 GOAL_THRESHOLD = 0.05 # in m
 TAKE_OFF_HEIGHT = 0.4 # in m
 
@@ -346,25 +346,14 @@ STATE = {
     "RACING": 1,
     "LANDING": 2,
 }
-DT = 0.1 # in seconds
-# GOALS = [[-0.85, 0.0, 0.4],
-#          [-0.85, -0., 0.8], #Gate 1
-#          [2.05, -0.3, 1.1], #Gate 2
-#          [2.05, 1.1, 1.1],
-#          [2.05, 1.1, 1.4],
-#          [-0.7, 1.1, 1.4],
-#          [-0.7, 1.1, 1.6],
-#          [-0.7, 0.0, 1.6],
-#          [0.0, 0.0, 0.6]] # Example goals for the drone to reach
 
-# gate 1 :-0.85 0.59, 1.71 -83
-# gate 2 : 1.16 -0.57 0.83 -2
-# gate 3 : 2.20 0.26 1.26 90
-# gate 4 : 0.84 0.65 1.65 -174
-# goals = change one axis at a time
 GOALS = extract_best_path(csv_path="gates_info_example.csv")
-print("GOALS: ", GOALS)
 
+MAX_VEL_X = 0.5 # in m/s
+MAX_VEL_Y = 0.5 # in m/s
+MAX_VEL_Z = 0.2 # in m/s
+
+DT = 0.1 # in seconds
 
 if __name__ == "__main__":
     # Initialize the low-level drivers
@@ -378,8 +367,9 @@ if __name__ == "__main__":
     cf.param.set_value('kalman.resetEstimation', '0')
     time.sleep(2)
 
-    cf.param.set_value('velCtlMaxVelXY', '0.4')  # default = 1.0 m/s
-    cf.param.set_value('velCtlMaxVelZ', '0.3')   # default = 0.5 m/s
+    cf.param.set_value('posCtlPid.xVelMax', '0.5')  # default = 1.0 m/s
+    cf.param.set_value('posCtlPid.yVelMax', '0.5')   # default = 1.0 m/s
+    cf.param.set_value('posCtlPid.zVelMax', '0.2')   # default = 0.5 m/s
     time.sleep(0.5)
 
     # Emergency stop thread

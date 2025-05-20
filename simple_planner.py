@@ -228,7 +228,7 @@ def extract_best_path(csv_path="gates_info_example.csv"):
     wp, gate_ids = csv_to_waypoints(csv_path)    
     best_wp_order, best_wp_indices, best_gate_ids_order, min_cost = sort_wp_min_energy(wp, gate_ids)
 
-    visualize_gates(GATES_DATA, best_wp_order)
+    #visualize_gates(GATES_DATA, best_wp_order)
     print("Best path:", best_wp_order)
     print("Best indices:", best_wp_indices)
     print("Best gate IDs order:", best_gate_ids_order)
