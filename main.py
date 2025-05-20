@@ -367,6 +367,7 @@ if __name__ == "__main__":
     cf.param.set_value('kalman.resetEstimation', '0')
     time.sleep(2)
 
+    # Set maximum velocities
     cf.param.set_value('posCtlPid.xVelMax', '0.5')  # default = 1.0 m/s
     cf.param.set_value('posCtlPid.yVelMax', '0.5')   # default = 1.0 m/s
     cf.param.set_value('posCtlPid.zVelMax', '0.2')   # default = 0.5 m/s
