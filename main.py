@@ -38,7 +38,7 @@ logging.basicConfig(level=logging.ERROR) # Only output errors from the logging f
 
 # csv file path
 current_dir = os.path.dirname(__file__)
-csv_file_path = os.path.join(current_dir, "csv_files", "gates_info.csv")
+csv_file_path = os.path.join(current_dir, "csv_files", "gates_info_example.csv")
 
 STATE = {
     "TAKE_OFF": 0,
@@ -49,12 +49,11 @@ GATE_THRESHOLD = 0.05                           # Threshold for the position che
 DT = 0.01                                     # Time step for the main loop, in seconds
 LANDING_COORD = [0, 0, 0.3, 0]                    # Landing position of the drone, in [m, m, m, rad]
 TAKE_OFF_COORD = [0, 0, 1.0,  np.deg2rad(-60)]                 # Take off position of the drone, in [m, m, m, rad]
-GATES = [[0.2, -0.35, 1.3, np.deg2rad(-60)],   # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
-         [0.8, -0.6, 1.15, np.deg2rad(-1.5)],
-         [2.2, 0.3, 1.33, np.deg2rad(120)],
-         [-0.4, 0.82, 0.87, np.deg2rad(-123)]]
-# SIMPLE_GATES, GATES = csv_to_waypoints(csv_file_path) # Load the gates from the CSV file
-# print(SIMPLE_GATES)
+# GATES = [[0.2, -0.35, 1.3, np.deg2rad(-60)],   # [x, y, z, yaw] of each true gate, in [m, m, m, rad]
+#          [0.8, -0.6, 1.15, np.deg2rad(-1.5)],
+#          [2.2, 0.3, 1.33, np.deg2rad(120)],
+#          [-0.4, 0.82, 0.87, np.deg2rad(-123)]]
+GATES = csv_to_waypoints(csv_file_path) # Load the gates from the CSV file
 print(GATES)
 OFFSET_GATE = 0.15                              # Offset to the leading and trailing gate, in meters
 RACING_VELOCITY = 1.0                           # Velocity goal during the racing, in m/s
@@ -587,9 +586,13 @@ def trajectory_tracking(timer, index_current_setpoint, setpoints, time_setpoints
     if timer is not None:
         if index_current_setpoint < len(time_setpoints) - 1:
             # Update new setpoint
-            if timer >= time_setpoints[index_current_setpoint]:
-                index_current_setpoint += 1
-            current_setpoint = setpoints[index_current_setpoint,:]
+            # if timer >= time_setpoints[index_current_setpoint]:
+            #     index_current_setpoint += 1
+            # current_setpoint = setpoints[index_current_setpoint,:]
+            index_current_setpoint = np.searchsorted(time_setpoints, timer, side='right')
+            if index_current_setpoint >= len(time_setpoints):
+                index_current_setpoint = len(time_setpoints) - 1
+            current_setpoint = setpoints[index_current_setpoint, :]
         else:
             # Hover at the final setpoint
             current_setpoint = setpoints[-1]
