@@ -65,6 +65,10 @@ def csv_to_waypoints(csv_file_path):
             np.array(corners[1]) - np.array(corners[0]),
             np.array(corners[3]) - np.array(corners[0])
         )
+        # normal_vect = np.cross(
+        #     np.array(corners[3]) - np.array(corners[0]),  # Horizontal vector first
+        #     np.array(corners[1]) - np.array(corners[0])   # Vertical vector second
+        # )
         # normalizing
         normal_vect = normal_vect / np.linalg.norm(normal_vect)
 
@@ -217,6 +221,8 @@ def visualize_gates(GATES_DATA, best_path=None):
     ax.legend(unique.values(), unique.keys())
 
     plt.tight_layout()
+    plt.savefig("plot_gates_simple_planner.png")
+    # plt.close()
     plt.show()
 
 def extract_best_path(csv_path="gates_info_example.csv"):
@@ -228,7 +234,7 @@ def extract_best_path(csv_path="gates_info_example.csv"):
     wp, gate_ids = csv_to_waypoints(csv_path)    
     best_wp_order, best_wp_indices, best_gate_ids_order, min_cost = sort_wp_min_energy(wp, gate_ids)
 
-    #visualize_gates(GATES_DATA, best_wp_order)
+    visualize_gates(GATES_DATA, best_wp_order)
     print("Best path:", best_wp_order)
     print("Best indices:", best_wp_indices)
     print("Best gate IDs order:", best_gate_ids_order)
