@@ -96,81 +96,84 @@ def csv_to_waypoints(csv_file_path):
 
     return wp, gate_ids
 
+from itertools import product
+import numpy as np
+
 def sort_wp_min_energy(wp, gate_ids, angle_penalty_weight=ANGLE_PENALTY):
     """
-    Finds the most energy-efficient order to visit a series of gates, where:
-    - Each gate has 2 normal points (entry/exit) that must be consecutive, but can flip.
-    - The order of gates can be permuted.
-    - The path starts at either normal point 1 or 2 (1st gate)
-    - Energy = distance + angle penalties (to avoid sharp turns).
-    
+    Finds the most energy-efficient flipping of normal points per gate,
+    while keeping the gate order fixed (gate 1 → gate 2 → ...).
+
     Args:
-        wp (list): Waypoints. List of N_GATES tuples, 1 (np.array(normal_point_1), np.array(normal_point_2)) for each gate.
-        gate_ids (list of int): Parallel list to wp, gate_ids[i] is the gate ID for wp[i].
-        gate_to_idx (dict): Mapping from gate ID to indices of its normal points in wp.
-        angle_penalty_weight (float): Weight applied to angle penalties relative to distance.
+        wp (list): Waypoints. List of 2*N_GATES np.array pairs [(np1, np2), ...].
+        gate_ids (list of int): Gate IDs for each waypoint in wp (same order).
+        angle_penalty_weight (float): Weight applied to angle penalties.
 
     Returns:
-        best_path (list): List of np.array waypointspoints representing the optimal path.
-        best_indices (list): List of indices (int) representing the updated order of waypoints.
-        best_wp_gate_ids (list of int): Gate IDs, parallel to 'best_indices', showing which gate each waypoint belongs to.
-        min_cost (float): Total energy cost (distance + angle penalties).
+        best_path (list): List of np.array representing the optimal path.
+        best_indices (list of int): Indices representing the waypoint order.
+        best_wp_gate_ids (list of int): Gate IDs aligned with best_indices.
+        min_cost (float): Total energy cost (distance + angle penalty).
     """
 
-    num_gates = len(wp) // 2  # Number of gates
-    gate_indices = [ (2*i, 2*i+1) for i in range(num_gates) ]  # Gate groupings
+    num_gates = len(wp) // 2
+    gate_indices = [(2*i, 2*i+1) for i in range(num_gates)]  # Fixed gate order
 
     best_path = None
     best_indices = None    
     best_wp_gate_ids = None
     min_cost = float('inf')
 
-    start_pair = (0, 1)  # Starting pair of indices (normal points of the first gate)
+    start_pair = (0, 1)  # Starting must be one of gate 1's normal points
 
-    for gate_order in permutations(gate_indices):
-        for flip_config in product([False, True], repeat=num_gates):
-            path = []
-            indices = []
-            for i, gate in enumerate(gate_order):
-                idx1, idx2 = gate
-                if flip_config[i]:
-                    path.extend([wp[idx2], wp[idx1]])      # Flip order
-                    indices.extend([idx2, idx1])
-                else:
-                    path.extend([wp[idx1], wp[idx2]])      # Normal order
-                    indices.extend([idx1, idx2])
+    for flip_config in product([False, True], repeat=num_gates):
+        path = []
+        indices = []
 
-            # Ensure starting point is waypoint 0 or 1 (Gate 1's normal points)
-            if indices[0] not in start_pair:
-                continue
+        for i, (idx1, idx2) in enumerate(gate_indices):
+            if flip_config[i]:
+                path.extend([wp[idx2], wp[idx1]])  # flipped
+                indices.extend([idx2, idx1])
+            else:
+                path.extend([wp[idx1], wp[idx2]])  # normal
+                indices.extend([idx1, idx2])
 
-            # Compute distance + angle penalties
-            dist = sum(np.linalg.norm(path[i+1] - path[i]) for i in range(len(path)-1))
-            angle_penalty = 0
-            for i in range(1, len(path)-1):
-                vec1 = path[i] - path[i-1]
-                vec2 = path[i+1] - path[i]
-                if np.linalg.norm(vec1) > 1e-6 and np.linalg.norm(vec2) > 1e-6:
-                    cos_theta = np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
-                    angle_penalty += (1 - cos_theta)
+        # Enforce start at gate 1's normal point
+        if indices[0] not in start_pair:
+            continue
 
-            cost = dist + angle_penalty_weight * angle_penalty
+        # Compute cost: distance + angle penalty
+        dist = sum(np.linalg.norm(path[i+1] - path[i]) for i in range(len(path)-1))
 
-            if cost < min_cost:
-                min_cost = cost
-                best_path = path
-                best_indices = indices
-                best_wp_gate_ids = [gate_ids[i] for i in indices]
+        angle_penalty = 0
+        for i in range(1, len(path)-1):
+            vec1 = path[i] - path[i-1]
+            vec2 = path[i+1] - path[i]
+            if np.linalg.norm(vec1) > 1e-6 and np.linalg.norm(vec2) > 1e-6:
+                cos_theta = np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+                angle_penalty += (1 - cos_theta)
+
+        cost = dist + angle_penalty_weight * angle_penalty
+
+        if cost < min_cost:
+            min_cost = cost
+            best_path = path
+            best_indices = indices
+            best_wp_gate_ids = [gate_ids[i] for i in indices]
 
     return best_path, best_indices, best_wp_gate_ids, min_cost
 
+
 def visualize_gates(GATES_DATA, best_path=None):
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111, projection='3d')
 
-    # Plot map plane
-    xx = [0, 8, 8, 0, 0]
-    yy = [0, 0, 8, 8, 0]
+    # Plot map plane (centered at origin)
+    xx = [-4, 4, 4, -4, -4]
+    yy = [-4, -4, 4, 4, -4]
     zz = [0]*5
     ax.plot(xx, yy, zz, color='gray', linestyle='--', label='Map Boundary')
 
@@ -194,6 +197,7 @@ def visualize_gates(GATES_DATA, best_path=None):
         plotted["corner"] = True
 
         # Plot normal points
+        # Plot normal points
         for np_pt in normal_pts:
             ax.scatter(*np_pt, color='green', s=10, label='Normal point' if not plotted["normal"] else "")
         plotted["normal"] = True
@@ -204,16 +208,22 @@ def visualize_gates(GATES_DATA, best_path=None):
             ax.scatter(*wp, color='red', s=15, label='Optimized path' if idx == 0 else "")
             ax.text(*wp, str(idx + 1), color='black', fontsize=7, ha='center')
 
+        # Draw a line connecting all normal points in the optimized path
+        xline = [p[0] for p in best_path]
+        yline = [p[1] for p in best_path]
+        zline = [p[2] for p in best_path]
+        ax.plot(xline, yline, zline, color='red', linewidth=1.0, linestyle='-')
+
     # Axes labels and limits
     ax.set_xlabel('X (m)')
     ax.set_ylabel('Y (m)')
     ax.set_zlabel('Z (m)')
-    ax.set_xlim(0, 8)
-    ax.set_ylim(0, 8)
-    ax.set_zlim(-0.5, 2.0)  # allow grid below zero
+    ax.set_xlim(-4, 4)
+    ax.set_ylim(-4, 4)
+    ax.set_zlim(-0.5, 2.0)
 
-    # Grid: force full visibility
-    ax.grid(True)
+    # Top-down view (X up, Y left)
+    ax.view_init(elev=90, azim=180)
 
     # Clean legend
     handles, labels = ax.get_legend_handles_labels()
@@ -222,8 +232,10 @@ def visualize_gates(GATES_DATA, best_path=None):
 
     plt.tight_layout()
     plt.savefig("plot_gates_simple_planner.png")
-    # plt.close()
     plt.show()
+
+
+
 
 def extract_best_path(csv_path="gates_info_example.csv"):
     """
