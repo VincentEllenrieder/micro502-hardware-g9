@@ -8,6 +8,9 @@ dist/*
 venv*
 **/cache/*.json
 
+#ignore images
+*.png
+
 #eclipse generated files
 .project
 .pydevproject
