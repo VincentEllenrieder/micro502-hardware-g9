@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-OFFSET_GATE = 0.15 
+
+OFFSET_GATE = 0.15      # Offset to the leading and trailing gate, in meters
 
 
 def csv_to_waypoints_simple_planner(csv_file_path):
@@ -40,7 +41,7 @@ def csv_to_waypoints_motion_planner(csv_file_path):
         x = float(w['x'])
         y = float(w['y'])
         z = float(w['z'])
-        theta = float(w['theta']) - np.pi / 2  # Perpendicular to the gate
+        theta = (float(w['theta']) - np.pi / 2) % (2 * np.pi)  # Perpendicular to the gate and safe whatever theta ([0, π] or [0, 2π])
         gates_uncertain_yaw.append([x, y, z, theta])
 
     N = len(gates_uncertain_yaw)
@@ -68,7 +69,7 @@ def csv_to_waypoints_motion_planner(csv_file_path):
         yaw_vector = np.array([np.cos(yaw), np.sin(yaw)])
 
         if np.dot(direction, yaw_vector) < 0:
-            yaw += np.pi
+            yaw = (yaw + np.pi) % (2 * np.pi)
 
         return yaw
 
@@ -122,8 +123,6 @@ def plot_waypoints(waypoints, csv_file_path):
         true_gates.append([x, y, z, theta])
         sizes.append(size)
     
-    print("true_gates", true_gates)
-
     # Unpack coordinates
     waypoint_x, waypoint_y, waypoint_z = zip(*waypoints)
 
@@ -159,7 +158,6 @@ def plot_waypoints(waypoints, csv_file_path):
     def draw_rotated_gate(ax, x, y, z, theta, size):
         # Gate is a vertical square centered at (x, y, z)
         # First, define the corners of the gate in its local YZ frame
-        print(size)
         half_size = size / 2
         local_corners = np.array([
             [-half_size, 0, -half_size],
@@ -204,7 +202,7 @@ def plot_waypoints(waypoints, csv_file_path):
         ax.legend()
 
     plt.tight_layout()
-    plt.savefig("demo_waypoints_motion_planner.png")
+    plt.savefig("demo_motion_planner_waypoints.png", dpi=600)
     plt.close()
 
 
