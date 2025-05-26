@@ -99,7 +99,7 @@ def csv_to_waypoints_motion_planner(csv_file_path):
     waypoints2laps[2 * 3 * N + 1] = take_off_coord[0:3]
 
     # Plot the waypoints
-    plot_waypoints(waypoints2laps, csv_file_path)
+    # plot_waypoints(waypoints2laps, csv_file_path)
 
     return waypoints2laps, take_off_coord
 
@@ -180,9 +180,9 @@ def plot_waypoints(waypoints, csv_file_path):
 
     for i, (title, elev, azim) in enumerate(views, start=1):
         ax = fig.add_subplot(1, 3, i, projection='3d')
-        ax.scatter(leading_x, leading_y, leading_z, color='red', label='Leading Gate')
+        ax.scatter(leading_x, leading_y, leading_z, color='red', label='Leading waypoint')
         ax.scatter(gate_x, gate_y, gate_z, color='green', label='Gate')
-        ax.scatter(trailing_x, trailing_y, trailing_z, color='blue', label='Trailing Gate')
+        ax.scatter(trailing_x, trailing_y, trailing_z, color='blue', label='Trailing waypoint')
 
         # Draw the actual gate faces using the yaw angles from true_gates
         for idx, (x, y, z, theta) in enumerate(true_gates, start=1):
@@ -196,9 +196,9 @@ def plot_waypoints(waypoints, csv_file_path):
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
-        ax.set_xlim([-3, 3])
-        ax.set_ylim([-3, 3])
-        ax.set_zlim([0, 3])
+        ax.set_xlim([-2.75, 2.75])
+        ax.set_ylim([-2.75, 2.75])
+        ax.set_zlim([0, 2.5])
         ax.legend()
 
     plt.tight_layout()

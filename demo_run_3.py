@@ -363,7 +363,7 @@ class MotionPlanner3D():
         trajectory_setpoints = np.hstack((x_vals, y_vals, z_vals, yaw_vals))
 
         # self.plot(obs, path_waypoints, trajectory_setpoints)
-        self.plot_with_yaw(obs, path_waypoints, trajectory_setpoints)
+        # self.plot_with_yaw(obs, path_waypoints, trajectory_setpoints)
             
         # Find the maximum absolute velocity during the segment
         vel_max = np.max(np.sqrt(v_x_vals**2 + v_y_vals**2 + v_z_vals**2))
@@ -570,7 +570,7 @@ if __name__ == "__main__":
                 break
             else:
                 print("Landing...")
-                cf.commander.send_position_setpoint(LANDING_COORD[0], LANDING_COORD[1], LANDING_COORD[2], LANDING_COORD[3])
+                cf.commander.send_position_setpoint(LANDING_COORD[0], LANDING_COORD[1], LANDING_COORD[2], current_orientation[2])
 
         # Sleep to respect the desired loop time
         time_end = time.time()
