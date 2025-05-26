@@ -219,8 +219,8 @@ def visualize_gates(GATES_DATA, best_path=None):
     ax.set_xlabel('X (m)')
     ax.set_ylabel('Y (m)')
     ax.set_zlabel('Z (m)')
-    ax.set_xlim(-4, 4)
-    ax.set_ylim(-4, 4)
+    ax.set_xlim(-2.5, 2.5)
+    ax.set_ylim(-2.5, 2.5)
     ax.set_zlim(-0.5, 2.0)
 
     # Top-down view (X up, Y left)
@@ -244,7 +244,7 @@ def extract_best_path(csv_path="demo_gates_info.csv"):
     wp, gate_ids = csv_to_waypoints(csv_path)    
     best_wp_order, best_wp_indices, best_gate_ids_order, min_cost = sort_wp_min_energy(wp, gate_ids)
 
-    #visualize_gates(GATES_DATA, best_wp_order)
+    visualize_gates(GATES_DATA, best_wp_order)
     print("Best normal points order:", best_wp_order)
     print("Best indices:", best_wp_indices)
     print("Best gate IDs order:", best_gate_ids_order)

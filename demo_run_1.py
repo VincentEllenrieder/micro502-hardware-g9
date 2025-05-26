@@ -227,7 +227,7 @@ if __name__ == "__main__":
     # Set maximum velocities
     cf.param.set_value('posCtlPid.xVelMax', '0.5')  # default = 1.0 m/s
     cf.param.set_value('posCtlPid.yVelMax', '0.5')   # default = 1.0 m/s
-    cf.param.set_value('posCtlPid.zVelMax', '0.2')   # default = 0.5 m/s
+    cf.param.set_value('posCtlPid.zVelMax', '0.1')   # default = 0.5 m/s
     time.sleep(0.5)
 
     # Emergency stop thread
