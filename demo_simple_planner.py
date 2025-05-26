@@ -37,8 +37,8 @@ def csv_to_waypoints(csv_file_path):
     gate_ids = []
     
     # Convert the list of dictionaries to a dictionary with Gate as the key
-    for w in waypoints_init:
-        x = float(w['x'])
+    for idx, w in enumerate(waypoints_init):
+        x = float(w['x']) 
         y = float(w['y'])
         z = float(w['z'])
         theta = float(w['theta'])
@@ -73,10 +73,16 @@ def csv_to_waypoints(csv_file_path):
         # normalizing
         normal_vect = normal_vect / np.linalg.norm(normal_vect)
 
+
         # normal points on each side of the gate
-        np1 = centroid + DISTANCE_FROM_GATE * normal_vect
-        np2 = centroid - DISTANCE_FROM_GATE * normal_vect
+        if idx == 0:  # First gate, normal point at 50 cm from the gate
+            np1 = centroid - (0.5) * normal_vect
         
+        else:
+            np1 = centroid - DISTANCE_FROM_GATE * normal_vect
+
+        np2 = centroid + DISTANCE_FROM_GATE * normal_vect
+
         # Attributing the values to the global dictionary
         idx = int(w['Gate'])
         GATES_DATA[f"GATE{idx}"] = {

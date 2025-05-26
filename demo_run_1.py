@@ -33,7 +33,7 @@ uri = uri_helper.uri_from_env(default='radio://0/90/2M/E7E7E7E709')
 logging.basicConfig(level=logging.ERROR)
 
 # Group defined parameters
-GOAL_THRESHOLD = 0.05 # in m
+GOAL_THRESHOLD = 0.015 # in m
 # TAKE_OFF_HEIGHT = 0.4 # in m
 
 STATE = {
@@ -225,9 +225,9 @@ if __name__ == "__main__":
     time.sleep(2)
 
     # Set maximum velocities
-    cf.param.set_value('posCtlPid.xVelMax', '0.5')  # default = 1.0 m/s
-    cf.param.set_value('posCtlPid.yVelMax', '0.5')   # default = 1.0 m/s
-    cf.param.set_value('posCtlPid.zVelMax', '0.1')   # default = 0.5 m/s
+    cf.param.set_value('posCtlPid.xVelMax', '0.25')  # default = 1.0 m/s
+    cf.param.set_value('posCtlPid.yVelMax', '0.25')   # default = 1.0 m/s
+    cf.param.set_value('posCtlPid.zVelMax', '0.125')   # default = 0.5 m/s
     time.sleep(0.5)
 
     # Emergency stop thread
