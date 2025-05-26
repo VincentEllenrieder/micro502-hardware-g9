@@ -126,8 +126,8 @@ class LoggingExample:
         except AttributeError:
             print('Could not add Stabilizer log config, bad configuration.')
 
-        # Start a timer to disconnect in 60s
-        t = Timer(120, self._cf.close_link) #WTF
+        # Start a timer to disconnect in 500s
+        t = Timer(500, self._cf.close_link) #WTF
         t.start()
 
     def _stab_log_error(self, logconf, msg):
