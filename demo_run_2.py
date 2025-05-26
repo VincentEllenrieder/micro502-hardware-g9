@@ -37,7 +37,7 @@ URI = uri_helper.uri_from_env(default='radio://0/90/2M/E7E7E7E709')
 logging.basicConfig(level=logging.ERROR) # Only output errors from the logging framework
 
 CURR_DIR = os.path.dirname(__file__)
-CSV_FILE_PATH = os.path.join(CURR_DIR, "demo_gates_info.csv")
+CSV_FILE_PATH = os.path.join(CURR_DIR, "gates_info.csv")
 STATE = {
     "TAKE_OFF": 0,
     "RACING": 1,

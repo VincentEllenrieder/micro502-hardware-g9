@@ -41,7 +41,7 @@ STATE = {
     "LANDING": 2,
 }
 
-GOALS = extract_best_path(csv_path="demo_gates_info.csv")
+GOALS = extract_best_path(csv_path="gates_info.csv")
 print("Best total path :", GOALS)
 
 MAX_VEL_X = 0.5 # in m/s
